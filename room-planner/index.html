@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Room Planner</title>
+<style>
+  :root { --bg:#f4f1ea; --panel:#fff; --ink:#2b2b2b; --muted:#80796c; --accent:#2f6fde; --line:#e4ded2; --bad:#d33b2f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  #app { display: grid; grid-template-columns: 230px 1fr 270px; grid-template-rows: minmax(0, 1fr); height: 100vh; }
+  aside { background: var(--panel); overflow-y: auto; padding: 14px; }
+  aside.left { border-right: 1px solid var(--line); }
+  aside.right { border-left: 1px solid var(--line); }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 0 6px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 18px 0 6px; }
+  h3 { font-size: 12px; margin: 12px 0 4px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 9px; color: var(--ink); }
+  button:hover { border-color: #c9c1b1; background: #faf8f4; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--bad); }
+  .catalog button, .inroom button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; margin-bottom: 4px; }
+  .catalog .swatch, .inroom .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.2); }
+  .catalog .dim, .inroom .dim { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .inroom button.sel { border-color: var(--accent); background: #eef3fd; }
+  .inroom button.bad .dim { color: var(--bad); }
+  main { display: flex; flex-direction: column; min-width: 0; }
+  .toolbar { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; align-items: center; }
+  .toolbar .status { margin-left: auto; color: var(--muted); }
+  .toolbar .status.bad { color: var(--bad); font-weight: 600; }
+  #stage { flex: 1; min-height: 0; padding: 10px; }
+  #room { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .hint { padding: 6px 12px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); background: var(--panel); }
+  kbd { font: 11px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: #fff; }
+  label.field { display: block; margin-bottom: 8px; }
+  label.field span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+  input[type=text], input[type=number], textarea { font: inherit; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; }
+  textarea { font: 11px/1.4 ui-monospace, Menlo, monospace; height: 190px; resize: vertical; }
+  input[type=color] { width: 100%; height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 2px; background: #fff; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .check { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .gaps { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; background: #faf8f4; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  .gaps b { font-weight: 600; }
+  .warn { color: var(--bad); font-weight: 600; margin: 8px 0; }
+  .muted { color: var(--muted); }
+  small { color: var(--muted); display: block; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="left">
+    <h1>Room Planner</h1>
+    <p class="sub">Click a piece to add it, then drag it around.</p>
+    <div class="catalog" id="catalog"></div>
+    <h2>In the room</h2>
+    <div class="inroom" id="inroom"></div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <button id="undoBtn" title="Undo (⌘Z)">↶ Undo</button>
+      <button id="pngBtn">Export PNG</button>
+      <button id="saveBtn">Save layout (.json)</button>
+      <button id="loadBtn">Load layout</button>
+      <button id="resetBtn" class="danger">Reset</button>
+      <input type="file" id="fileInput" accept="application/json,.json" hidden>
+      <span class="status" id="status"></span>
+    </div>
+    <div id="stage"><svg id="room" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="hint">
+      Drag to move · <kbd>R</kbd> rotate · <kbd>⌫</kbd> delete · <kbd>←↑→↓</kbd> nudge 1″ (<kbd>Shift</kbd> 1′) ·
+      <kbd>⌘D</kbd> duplicate · <kbd>⌘Z</kbd> undo · hold <kbd>Shift</kbd> while dragging to skip wall snapping · 1 grid square = 1 ft
+    </div>
+  </main>
+
+  <aside class="right">
+    <div id="selPanel"></div>
+    <div id="roomPanel"></div>
+  </aside>
+</div>
+
+<script>
+// ---------- Config ----------
+const STORAGE_KEY = 'room-planner.v1';
+const WALL = 6;        // wall thickness drawn outside the room, inches
+const WALL_SNAP = 4;   // pieces within this distance of a wall snap flush to it
+const MARGIN = 38;     // space around the room for labels, inches
+
+// Generic furniture, sizes in inches (w = side-to-side, d = front-to-back).
+const CATALOG = [
+  { group: 'My furniture', name: 'My bed',        w: 57, d: 77,   color: '#8fb3d9', kind: 'bed' },
+  { group: 'My furniture', name: 'My nightstand', w: 16, d: 16,   color: '#c9a27a' },
+  { group: 'My furniture', name: 'My desk',       w: 46, d: 23.5, color: '#9aa57a' },
+  { group: 'Beds',    name: 'Twin bed',     w: 39, d: 75,  color: '#8fb3d9', kind: 'bed' },
+  { group: 'Beds',    name: 'Full bed',     w: 54, d: 75,  color: '#8fb3d9', kind: 'bed' },
+  { group: 'Beds',    name: 'Queen bed',    w: 60, d: 80,  color: '#8fb3d9', kind: 'bed' },
+  { group: 'Beds',    name: 'King bed',     w: 76, d: 80,  color: '#8fb3d9', kind: 'bed' },
+  { group: 'Storage', name: 'Nightstand',   w: 20, d: 16,  color: '#c9a27a' },
+  { group: 'Storage', name: 'Dresser',      w: 60, d: 18,  color: '#b88b5e' },
+  { group: 'Storage', name: 'Tall dresser', w: 34, d: 18,  color: '#b88b5e' },
+  { group: 'Storage', name: 'Wardrobe',     w: 40, d: 24,  color: '#a0764c' },
+  { group: 'Storage', name: 'Bookshelf',    w: 32, d: 12,  color: '#a0764c' },
+  { group: 'Sit & work', name: 'Desk',       w: 48, d: 24, color: '#9aa57a' },
+  { group: 'Sit & work', name: 'Desk chair', w: 24, d: 24, color: '#6f7d5a', kind: 'round' },
+  { group: 'Sit & work', name: 'Armchair',   w: 32, d: 32, color: '#d39b8b' },
+  { group: 'Sit & work', name: 'Bench',      w: 48, d: 16, color: '#c9a27a' },
+  { group: 'Sit & work', name: 'TV stand',   w: 48, d: 16, color: '#7d7d7d' },
+  { group: 'Decor', name: 'Rug 5×8',    w: 60, d: 96,  color: '#e8cfae', floor: true },
+  { group: 'Decor', name: 'Rug 8×10',   w: 96, d: 120, color: '#e8cfae', floor: true },
+  { group: 'Decor', name: 'Floor lamp', w: 14, d: 14,  color: '#f0d36b', kind: 'round' },
+  { group: 'Decor', name: 'Plant',      w: 16, d: 16,  color: '#6bab6b', kind: 'round' },
+  { group: 'Decor', name: 'Custom box', w: 24, d: 24,  color: '#b0b0b0' },
+];
+
+// Room size and window positions are estimated from the floor plan; door, radiator and
+// closet depth are measured. Windows are on the west (left) wall with the radiator under
+// the northern one. The closet is recessed into the south wall (y = room depth), and the
+// entry door is on the east wall at the south end. Offsets run from the top/left corner.
+const ROOM_VERSION = 3;
+function defaultRoom() {
+  return {
+    version: ROOM_VERSION,
+    w: 132, d: 132,   // 11' × 11' of floor, not counting the recessed closet
+    openings: [
+      { type: 'window', wall: 'W', offset: 12, width: 36 },
+      { type: 'window', wall: 'W', offset: 72, width: 36 },
+      { type: 'radiator', wall: 'W', offset: 15, width: 30, depth: 9 },
+      { type: 'door',   wall: 'E', offset: 96, width: 33.5, hinge: 'end' },
+      { type: 'closet', x: 0, y: 132, w: 60, d: 29, clearance: 20, doors: 2 },
+    ],
+  };
+}
+
+// ---------- State ----------
+let state = load() || { room: defaultRoom(), items: [] };
+let selectedId = null;
+let history = [];
+let drag = null;
+
+const $ = id => document.getElementById(id);
+const svg = $('room');
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!s || !s.room || !Array.isArray(s.items)) return null;
+    if (s.room.version !== ROOM_VERSION) s.room = defaultRoom();  // pick up room corrections, keep furniture
+    return s;
+  } catch { return null; }
+}
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function snapshot() { history.push(JSON.stringify(state)); if (history.length > 200) history.shift(); }
+function undo() {
+  const prev = history.pop();
+  if (!prev) return;
+  state = JSON.parse(prev);
+  if (!find(selectedId)) selectedId = null;
+  commit();
+  renderRoomPanel();
+}
+function commit() { save(); render(); renderPanels(); }
+
+// ---------- Geometry helpers ----------
+const uid = () => Math.random().toString(36).slice(2, 9);
+const find = id => state.items.find(i => i.id === id);
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const round1 = v => Math.round(v * 10) / 10;
+const dims = it => (it.rot % 180 ? { w: it.d, d: it.w } : { w: it.w, d: it.d });
+const box = it => ({ x: it.x, y: it.y, ...dims(it) });
+const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function fmt(inches) {
+  const r = Math.round(inches);
+  const ft = Math.floor(r / 12), i = r % 12;
+  return ft ? `${ft}′ ${i}″` : `${i}″`;
+}
+
+// Maps (along-the-wall, into-the-room) coordinates to room x/y for a given wall.
+function frame(wall) {
+  const { w: W, d: D } = state.room;
+  return {
+    N: (a, i) => [a, i],
+    S: (a, i) => [a, D - i],
+    W: (a, i) => [i, a],
+    E: (a, i) => [W - i, a],
+  }[wall];
+}
+function rectFrom(f, a0, a1, i0, i1) {
+  const [x0, y0] = f(a0, i0), [x1, y1] = f(a1, i1);
+  return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), d: Math.abs(y1 - y0) };
+}
+
+// Areas furniture should stay out of.
+function zones() {
+  return state.room.openings.flatMap(o => {
+    if (o.type === 'door') return [{ ...rectFrom(frame(o.wall), o.offset, o.offset + o.width, 0, o.width), label: 'door swing' }];
+    if (o.type === 'radiator') return [{ ...rectFrom(frame(o.wall), o.offset, o.offset + o.width, 0, o.depth), label: 'radiator', solid: true }];
+    if (o.type === 'closet') {
+      const c = o.clearance || 0;
+      return [{ x: o.x, y: o.y, w: o.w, d: o.d, label: 'closet', solid: true },
+              { x: o.x, y: o.y - c, w: o.w, d: c, label: 'closet doors' }];
+    }
+    return [];
+  });
+}
+
+// Map of item id -> list of reasons it is in a bad spot.
+function conflicts() {
+  const bad = new Map();
+  const flag = (id, why) => { if (!bad.has(id)) bad.set(id, []); bad.get(id).push(why); };
+  const solids = state.items.filter(i => !i.floor);
+  const zs = zones();
+  solids.forEach((a, i) => {
+    const ab = box(a);
+    zs.forEach(z => { if (overlap(ab, z)) flag(a.id, `blocks the ${z.label}`); });
+    solids.slice(i + 1).forEach(b => {
+      if (overlap(ab, box(b))) { flag(a.id, `overlaps ${b.name}`); flag(b.id, `overlaps ${a.name}`); }
+    });
+  });
+  return bad;
+}
+
+// Nearest wall or solid object in each direction from an item.
+function gaps(it) {
+  const b = box(it);
+  const { w: W, d: D } = state.room;
+  const others = state.items.filter(o => o.id !== it.id && !o.floor).map(box)
+    .concat(zones().filter(z => z.solid));
+  const ov = (a0, a1, b0, b1) => a0 < b1 && b0 < a1;
+  let L = 0, R = W, T = 0, B = D;
+  for (const o of others) {
+    if (ov(b.y, b.y + b.d, o.y, o.y + o.d)) {
+      if (o.x + o.w <= b.x) L = Math.max(L, o.x + o.w);
+      if (o.x >= b.x + b.w) R = Math.min(R, o.x);
+    }
+    if (ov(b.x, b.x + b.w, o.x, o.x + o.w)) {
+      if (o.y + o.d <= b.y) T = Math.max(T, o.y + o.d);
+      if (o.y >= b.y + b.d) B = Math.min(B, o.y);
+    }
+  }
+  return { b, L, R, T, B };
+}
+
+function place(it, x, y, snapWalls) {
+  const s = dims(it);
+  const { w: W, d: D } = state.room;
+  if (snapWalls) {
+    if (Math.abs(x) < WALL_SNAP) x = 0;
+    if (Math.abs(W - x - s.w) < WALL_SNAP) x = W - s.w;
+    if (Math.abs(y) < WALL_SNAP) y = 0;
+    if (Math.abs(D - y - s.d) < WALL_SNAP) y = D - s.d;
+  }
+  it.x = round1(clamp(x, 0, Math.max(0, W - s.w)));
+  it.y = round1(clamp(y, 0, Math.max(0, D - s.d)));
+}
+
+// ---------- Actions ----------
+function select(id) { selectedId = id; render(); renderPanels(); }
+
+function addItem(c) {
+  snapshot();
+  const it = { id: uid(), name: c.name, w: c.w, d: c.d, rot: 0, color: c.color, kind: c.kind || '', floor: !!c.floor, x: 0, y: 0 };
+  place(it, Math.round((state.room.w - c.w) / 2), Math.round((state.room.d - c.d) / 2), false);
+  // Rugs go under everything else.
+  if (it.floor) state.items.unshift(it); else state.items.push(it);
+  selectedId = it.id;
+  commit();
+}
+
+function rotate(it) {
+  snapshot();
+  const b = box(it);
+  const cx = b.x + b.w / 2, cy = b.y + b.d / 2;
+  it.rot = (it.rot + 90) % 360;
+  const s = dims(it);
+  place(it, cx - s.w / 2, cy - s.d / 2, false);
+  commit();
+}
+
+function duplicate(it) {
+  snapshot();
+  const copy = { ...it, id: uid() };
+  place(copy, it.x + 12, it.y + 12, false);
+  state.items.splice(state.items.indexOf(it) + 1, 0, copy);
+  selectedId = copy.id;
+  commit();
+}
+
+function remove(it) {
+  snapshot();
+  state.items = state.items.filter(i => i !== it);
+  selectedId = null;
+  commit();
+}
+
+// ---------- Rendering ----------
+function render(opts = {}) {
+  const { w: W, d: D, openings } = state.room;
+  const sel = opts.forExport ? null : find(selectedId);
+  const bad = conflicts();
+  // Extra space below the room for closets recessed into the south wall.
+  const below = Math.max(0, ...openings.filter(o => o.type === 'closet').map(o => o.y + o.d - D));
+  const vbH = D + 2 * MARGIN + below;
+  svg.setAttribute('viewBox', `${-MARGIN} ${-MARGIN} ${W + 2 * MARGIN} ${vbH}`);
+
+  let s = `<defs>
+    <pattern id="grid" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M12 0H0V12" fill="none" stroke="#ddd5c4" stroke-width="0.35"/>
+    </pattern>
+    <pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="4" stroke="#cfc7b6" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`;
+
+  if (opts.forExport) s += `<rect x="${-MARGIN}" y="${-MARGIN}" width="${W + 2 * MARGIN}" height="${vbH}" fill="#ffffff"/>`;
+
+  // Walls + floor
+  s += `<rect x="${-WALL}" y="${-WALL}" width="${W + 2 * WALL}" height="${D + 2 * WALL}" fill="#3b3833"/>`;
+  s += `<rect x="0" y="0" width="${W}" height="${D}" fill="#faf6ee"/>`;
+  s += `<rect x="0" y="0" width="${W}" height="${D}" fill="url(#grid)"/>`;
+
+  // Windows, doors, closet
+  for (const o of openings) {
+    if (o.type === 'window') {
+      const f = frame(o.wall);
+      const r = rectFrom(f, o.offset, o.offset + o.width, -WALL, 0);
+      const [x1, y1] = f(o.offset, -WALL / 2), [x2, y2] = f(o.offset + o.width, -WALL / 2);
+      s += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}" fill="#d5ebfa" stroke="#5a8fb8" stroke-width="0.6"/>`;
+      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5a8fb8" stroke-width="0.6"/>`;
+    } else if (o.type === 'door') {
+      const f = frame(o.wall);
+      const gap = rectFrom(f, o.offset, o.offset + o.width, -WALL - 0.5, 0.5);
+      const swing = rectFrom(f, o.offset, o.offset + o.width, 0, o.width);
+      const ah = o.hinge === 'start' ? o.offset : o.offset + o.width;   // hinge side
+      const ao = o.hinge === 'start' ? o.offset + o.width : o.offset;   // latch side
+      const pts = [];
+      for (let t = 0; t <= 90; t += 5) {
+        const rad = t * Math.PI / 180;
+        pts.push(f(ah + (ao - ah) * Math.cos(rad), o.width * Math.sin(rad)).join(','));
+      }
+      const [hx, hy] = f(ah, 0), [lx, ly] = f(ah, o.width);
+      s += `<rect x="${gap.x}" y="${gap.y}" width="${gap.w}" height="${gap.d}" fill="#faf6ee"/>`;
+      s += `<rect x="${swing.x}" y="${swing.y}" width="${swing.w}" height="${swing.d}" fill="#e0564a" fill-opacity="0.07"/>`;
+      s += `<polyline points="${pts.join(' ')}" fill="none" stroke="#8a8272" stroke-width="0.5" stroke-dasharray="1.5 1"/>`;
+      s += `<line x1="${hx}" y1="${hy}" x2="${lx}" y2="${ly}" stroke="#3b3833" stroke-width="1.2"/>`;
+    } else if (o.type === 'radiator') {
+      const f = frame(o.wall);
+      const r = rectFrom(f, o.offset, o.offset + o.width, 0, o.depth);
+      s += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}" fill="#c9ccd1" stroke="#6b6f76" stroke-width="0.8"/>`;
+      for (let a = o.offset + 3; a < o.offset + o.width - 1; a += 3) {  // fins
+        const [x1, y1] = f(a, 1), [x2, y2] = f(a, o.depth - 1);
+        s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#8d9199" stroke-width="0.5"/>`;
+      }
+    } else if (o.type === 'closet') {
+      const c = o.clearance || 0, n = o.doors || 2, dw = o.w / n;
+      s += `<rect x="${o.x}" y="${o.y - c}" width="${o.w}" height="${c}" fill="#e0564a" fill-opacity="0.07"/>`;
+      // Walls around the closet; its interior is drawn over the room wall so the front reads as open.
+      s += `<rect x="${o.x - WALL}" y="${o.y}" width="${o.w + 2 * WALL}" height="${o.d + WALL}" fill="#3b3833"/>`;
+      s += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.d}" fill="#f1ece2"/>`;
+      s += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.d}" fill="url(#hatch)"/>`;
+      s += `<text x="${o.x + o.w / 2}" y="${o.y + o.d / 2 + 1.5}" font-size="4.5" text-anchor="middle" fill="#6d665a">Closet</text>`;
+      for (let k = 0; k < n; k++) {  // bifold door symbols
+        const x0 = o.x + k * dw, p = dw / 4, h = dw / 5;
+        s += `<polyline points="${x0},${o.y} ${x0 + p},${o.y - h} ${x0 + 2 * p},${o.y} ${x0 + 3 * p},${o.y - h} ${x0 + dw},${o.y}" fill="none" stroke="#3b3833" stroke-width="0.6"/>`;
+      }
+    }
+  }
+
+  // Furniture (selected piece drawn last so it stays visible while dragging)
+  const order = state.items.filter(i => i !== sel);
+  if (sel) order.splice(sel.floor ? order.filter(i => i.floor).length : order.length, 0, sel);
+  for (const it of order) s += drawItem(it, bad.has(it.id), it === sel);
+
+  if (sel) s += drawGaps(sel);
+
+  // Wall dimensions + scale bar + compass
+  s += `<text x="${W / 2}" y="${-WALL - 5}" font-size="5" text-anchor="middle" fill="#5d574c">${fmt(W)}</text>`;
+  s += `<text x="${-WALL - 5}" y="${D / 2}" font-size="5" text-anchor="middle" fill="#5d574c" transform="rotate(-90 ${-WALL - 5} ${D / 2})">${fmt(D)}</text>`;
+  const sy = D + WALL + below + 14;
+  s += `<path d="M0 ${sy - 2}V${sy}H24V${sy - 2}M12 ${sy}V${sy - 1.5}" fill="none" stroke="#5d574c" stroke-width="0.6"/>`;
+  s += `<text x="28" y="${sy + 1}" font-size="4" fill="#5d574c">2 ft</text>`;
+  s += `<text x="${W}" y="${sy + 1}" font-size="4" text-anchor="end" fill="#8a8272">N ↑ · windows on W wall</text>`;
+
+  s += `</g>`;
+  svg.innerHTML = s;
+  updateStatus(bad);
+}
+
+function drawItem(it, isBad, isSel) {
+  const b = box(it);
+  const cx = b.x + b.w / 2, cy = b.y + b.d / 2;
+  const w = it.w, d = it.d, x = -w / 2, y = -d / 2;
+  const stroke = isBad ? '#d33b2f' : isSel ? '#2f6fde' : 'rgba(0,0,0,.45)';
+  const sw = isBad || isSel ? 1 : 0.5;
+  let g = `<g data-id="${it.id}" style="cursor:move">`;
+  g += `<g transform="translate(${cx} ${cy}) rotate(${it.rot})">`;
+
+  if (it.kind === 'round') {
+    g += `<ellipse cx="0" cy="0" rx="${w / 2}" ry="${d / 2}" fill="${it.color}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  } else if (it.floor) {
+    g += `<rect x="${x}" y="${y}" width="${w}" height="${d}" rx="1" fill="${it.color}" fill-opacity="0.75" stroke="${isSel ? stroke : 'rgba(0,0,0,.25)'}" stroke-width="${sw}"/>`;
+    g += `<rect x="${x + 3}" y="${y + 3}" width="${w - 6}" height="${d - 6}" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="0.5" stroke-dasharray="2 1.5"/>`;
+  } else {
+    g += `<rect x="${x}" y="${y}" width="${w}" height="${d}" rx="1.5" fill="${it.color}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    if (it.kind === 'bed') {
+      // Headboard, pillows and a folded-back blanket so you can tell which way it faces.
+      g += `<rect x="${x}" y="${y}" width="${w}" height="3" fill="rgba(0,0,0,.35)"/>`;
+      const n = w >= 50 ? 2 : 1, pw = (w - 4 - (n - 1) * 3) / n;
+      for (let k = 0; k < n; k++) g += `<rect x="${x + 2 + k * (pw + 3)}" y="${y + 5}" width="${pw}" height="11" rx="3" fill="#fff" fill-opacity="0.85"/>`;
+      g += `<rect x="${x}" y="${y + 21}" width="${w}" height="${d - 21}" rx="1.5" fill="rgba(0,0,0,.08)"/>`;
+    } else {
+      // Darker strip marks the back (the side that goes against a wall).
+      g += `<rect x="${x}" y="${y}" width="${w}" height="${Math.min(2.5, d / 4)}" fill="rgba(0,0,0,.28)"/>`;
+    }
+  }
+  if (isBad) g += `<rect x="${x}" y="${y}" width="${w}" height="${d}" fill="#ff3b30" fill-opacity="0.28" pointer-events="none"/>`;
+  g += `</g>`;
+
+  // Labels stay upright no matter how the piece is rotated.
+  const nameSize = Math.min(4.2, b.w / (it.name.length * 0.6 + 1));
+  if (nameSize >= 2) {
+    const dimLine = b.d >= 14 && b.w >= 18;
+    const ty = cy + (dimLine ? -0.5 : nameSize / 3);
+    g += `<text x="${cx}" y="${ty}" font-size="${nameSize}" text-anchor="middle" fill="#1f1d1a" font-weight="600" pointer-events="none">${esc(it.name)}</text>`;
+    if (dimLine) g += `<text x="${cx}" y="${ty + 4.2}" font-size="3.2" text-anchor="middle" fill="#3d3a35" pointer-events="none">${fmt(b.w)} × ${fmt(b.d)}</text>`;
+  }
+
+  if (isSel) {
+    g += `<rect x="${b.x - 1.5}" y="${b.y - 1.5}" width="${b.w + 3}" height="${b.d + 3}" fill="none" stroke="#2f6fde" stroke-width="0.5" stroke-dasharray="2 1.5" pointer-events="none"/>`;
+    const hx = b.x + b.w + 1.5, hy = b.y - 1.5;
+    g += `<g data-action="rotate" style="cursor:pointer"><circle cx="${hx}" cy="${hy}" r="4" fill="#2f6fde"/>
+          <text x="${hx}" y="${hy + 1.8}" font-size="5.5" text-anchor="middle" fill="#fff" pointer-events="none">↻</text></g>`;
+  }
+  return g + `</g>`;
+}
+
+function drawGaps(it) {
+  const { b, L, R, T, B } = gaps(it);
+  const cx = b.x + b.w / 2, cy = b.y + b.d / 2;
+  const line = (x1, y1, x2, y2, len, lx, ly) => len < 1 ? '' :
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2f6fde" stroke-width="0.45" stroke-dasharray="1.5 1" pointer-events="none"/>
+     <text x="${lx}" y="${ly}" font-size="3.4" text-anchor="middle" fill="#2f6fde" font-weight="600" stroke="#faf6ee" stroke-width="1.2" paint-order="stroke" pointer-events="none">${fmt(len)}</text>`;
+  return line(L, cy, b.x, cy, b.x - L, (L + b.x) / 2, cy - 1.5)
+       + line(b.x + b.w, cy, R, cy, R - b.x - b.w, (b.x + b.w + R) / 2, cy - 1.5)
+       + line(cx, T, cx, b.y, b.y - T, cx + 1.5, (T + b.y) / 2 + 1.2).replace('text-anchor="middle"', 'text-anchor="start"')
+       + line(cx, b.y + b.d, cx, B, B - b.y - b.d, cx + 1.5, (b.y + b.d + B) / 2 + 1.2).replace('text-anchor="middle"', 'text-anchor="start"');
+}
+
+function updateStatus(bad) {
+  const el = $('status');
+  const n = state.items.length;
+  el.className = 'status' + (bad.size ? ' bad' : '');
+  el.textContent = bad.size ? `⚠ ${bad.size} piece${bad.size > 1 ? 's' : ''} in a bad spot`
+                            : `${n} piece${n === 1 ? '' : 's'} · no conflicts`;
+}
+
+function renderCatalog() {
+  let html = '', group = '';
+  CATALOG.forEach((c, i) => {
+    if (c.group !== group) { group = c.group; html += `<h3>${group}</h3>`; }
+    html += `<button data-cat="${i}"><span class="swatch" style="background:${c.color}"></span>${esc(c.name)}<span class="dim">${c.w}×${c.d}″</span></button>`;
+  });
+  $('catalog').innerHTML = html;
+}
+
+function renderPanels() {
+  const bad = conflicts();
+  $('inroom').innerHTML = state.items.length
+    ? state.items.map(it => `<button data-pick="${it.id}" class="${it.id === selectedId ? 'sel' : ''} ${bad.has(it.id) ? 'bad' : ''}">
+        <span class="swatch" style="background:${it.color}"></span>${esc(it.name)}<span class="dim">${bad.has(it.id) ? '⚠' : ''}</span></button>`).join('')
+    : '<p class="muted">Nothing yet.</p>';
+
+  const it = find(selectedId);
+  if (!it) {
+    $('selPanel').innerHTML = `<h2>Selected</h2><p class="muted">Click a piece in the room to edit it, or add one from the left.</p>`;
+    return;
+  }
+  const { b, L, R, T, B } = gaps(it);
+  const why = bad.get(it.id);
+  $('selPanel').innerHTML = `
+    <h2>Selected</h2>
+    <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(it.name)}"></label>
+    <div class="row">
+      <label class="field"><span>Width (in)</span><input type="number" min="1" step="0.5" data-field="w" value="${it.w}"></label>
+      <label class="field"><span>Depth (in)</span><input type="number" min="1" step="0.5" data-field="d" value="${it.d}"></label>
+    </div>
+    <label class="field"><span>Color</span><input type="color" data-field="color" value="${it.color}"></label>
+    <label class="check"><input type="checkbox" data-field="floor" ${it.floor ? 'checked' : ''}> Floor item (e.g. rug; other pieces can sit on it)</label>
+    ${why ? `<div class="warn">⚠ ${esc([...new Set(why)].join(', '))}</div>` : ''}
+    <div class="muted" style="margin-bottom:4px">Open space around it (to the nearest wall or piece):</div>
+    <div class="gaps">
+      <div>Left (W): <b>${fmt(b.x - L)}</b></div><div>Right (E): <b>${fmt(R - b.x - b.w)}</b></div>
+      <div>Top (N): <b>${fmt(b.y - T)}</b></div><div>Bottom (S): <b>${fmt(B - b.y - b.d)}</b></div>
+    </div>
+    <div class="btns">
+      <button data-act="rotate">↻ Rotate</button>
+      <button data-act="dup">Duplicate</button>
+      <button data-act="del" class="danger">Delete</button>
+    </div>`;
+}
+
+function renderRoomPanel() {
+  const r = state.room;
+  $('roomPanel').innerHTML = `
+    <h2>Room</h2>
+    <div class="row">
+      <label class="field"><span>Width (in) · ${fmt(r.w)}</span><input type="number" min="24" step="1" id="roomW" value="${r.w}"></label>
+      <label class="field"><span>Depth (in) · ${fmt(r.d)}</span><input type="number" min="24" step="1" id="roomD" value="${r.d}"></label>
+    </div>
+    <label class="field"><span>Windows, doors, radiator and closet (JSON)</span><textarea id="openings" spellcheck="false">${esc(JSON.stringify(r.openings, null, 1))}</textarea></label>
+    <small>Walls: N = top, S = bottom, W = left, E = right. <code>offset</code> is inches from the top/left corner.
+      Doors: <code>hinge</code> is "start" or "end". Radiator: <code>depth</code> is how far it sticks out from the wall. Closet: <code>x, y, w, d</code> in room inches; <code>clearance</code> is the space its doors need.</small>
+    <div class="btns">
+      <button id="applyRoom" class="primary">Apply room changes</button>
+      <button id="defaultRoom">Restore estimated room</button>
+    </div>
+    <div id="roomErr" class="warn"></div>`;
+}
+
+// ---------- Events ----------
+function toRoom(e) {
+  const p = svg.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+svg.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  if (e.target.closest('[data-action="rotate"]')) { rotate(find(selectedId)); return; }
+  const g = e.target.closest('[data-id]');
+  if (!g) { if (selectedId) select(null); return; }
+  const it = find(g.dataset.id);
+  const p = toRoom(e);
+  snapshot();
+  drag = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, moved: false };
+  svg.setPointerCapture(e.pointerId);
+  if (selectedId !== it.id) select(it.id);
+});
+
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const it = find(drag.id);
+  const p = toRoom(e);
+  place(it, Math.round(p.x - drag.dx), Math.round(p.y - drag.dy), !e.shiftKey);
+  drag.moved = true;
+  render();
+});
+
+function endDrag() {
+  if (!drag) return;
+  if (!drag.moved) history.pop();
+  drag = null;
+  save();
+  renderPanels();
+}
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+
+$('catalog').addEventListener('click', e => {
+  const btn = e.target.closest('[data-cat]');
+  if (btn) addItem(CATALOG[+btn.dataset.cat]);
+});
+
+$('inroom').addEventListener('click', e => {
+  const btn = e.target.closest('[data-pick]');
+  if (btn) select(btn.dataset.pick);
+});
+
+$('selPanel').addEventListener('change', e => {
+  const it = find(selectedId);
+  const f = e.target.dataset.field;
+  if (!it || !f) return;
+  snapshot();
+  if (f === 'w' || f === 'd') {
+    const v = parseFloat(e.target.value);
+    if (!(v > 0)) { history.pop(); renderPanels(); return; }
+    it[f] = v;
+    place(it, it.x, it.y, false);
+  } else if (f === 'floor') {
+    it.floor = e.target.checked;
+    state.items = [...state.items.filter(i => i.floor), ...state.items.filter(i => !i.floor)];
+  } else {
+    it[f] = e.target.value;
+  }
+  commit();
+});
+
+$('selPanel').addEventListener('click', e => {
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  const it = find(selectedId);
+  if (!it || !act) return;
+  if (act === 'rotate') rotate(it);
+  if (act === 'dup') duplicate(it);
+  if (act === 'del') remove(it);
+});
+
+$('roomPanel').addEventListener('click', e => {
+  if (e.target.id === 'applyRoom') {
+    const w = parseFloat($('roomW').value), d = parseFloat($('roomD').value);
+    let openings;
+    try {
+      openings = JSON.parse($('openings').value);
+      if (!Array.isArray(openings)) throw new Error('Expected a JSON array [ ... ]');
+    } catch (err) { $('roomErr').textContent = 'Invalid JSON: ' + err.message; return; }
+    if (!(w >= 24 && d >= 24)) { $('roomErr').textContent = 'Room must be at least 24″ each way.'; return; }
+    snapshot();
+    state.room = { w, d, openings };
+    state.items.forEach(it => place(it, it.x, it.y, false));
+    commit();
+    renderRoomPanel();
+  }
+  if (e.target.id === 'defaultRoom') {
+    snapshot();
+    state.room = defaultRoom();
+    state.items.forEach(it => place(it, it.x, it.y, false));
+    commit();
+    renderRoomPanel();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea, select')) return;
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  const it = find(selectedId);
+  if (!it) return;
+  const step = e.shiftKey ? 12 : 1;
+  const nudge = (dx, dy) => { e.preventDefault(); snapshot(); place(it, it.x + dx, it.y + dy, false); commit(); };
+  if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicate(it); }
+  else if (e.key === 'r' || e.key === 'R') rotate(it);
+  else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(it); }
+  else if (e.key === 'Escape') select(null);
+  else if (e.key === 'ArrowLeft') nudge(-step, 0);
+  else if (e.key === 'ArrowRight') nudge(step, 0);
+  else if (e.key === 'ArrowUp') nudge(0, -step);
+  else if (e.key === 'ArrowDown') nudge(0, step);
+});
+
+// ---------- Toolbar ----------
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$('undoBtn').onclick = undo;
+
+$('saveBtn').onclick = () =>
+  download(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }), 'room-layout.json');
+
+$('loadBtn').onclick = () => $('fileInput').click();
+$('fileInput').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.room || !Array.isArray(data.items)) throw new Error('missing room or items');
+    snapshot();
+    state = data;
+    selectedId = null;
+    commit();
+    renderRoomPanel();
+  } catch (err) { alert('Could not load that file: ' + err.message); }
+};
+
+$('resetBtn').onclick = () => {
+  if (!confirm('Remove all furniture and restore the estimated room? (You can undo this.)')) return;
+  snapshot();
+  state = { room: defaultRoom(), items: [] };
+  selectedId = null;
+  commit();
+  renderRoomPanel();
+};
+
+$('pngBtn').onclick = () => {
+  render({ forExport: true });
+  const clone = svg.cloneNode(true);
+  render();
+  const vb = svg.viewBox.baseVal, scale = 6;
+  clone.setAttribute('width', vb.width * scale);
+  clone.setAttribute('height', vb.height * scale);
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = vb.width * scale; c.height = vb.height * scale;
+    c.getContext('2d').drawImage(img, 0, 0);
+    c.toBlob(b => download(b, 'room-layout.png'));
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+};
+
+// ---------- Boot ----------
+renderCatalog();
+renderRoomPanel();
+render();
+renderPanels();
+</script>
+</body>
+</html>
