@@ -32,6 +32,7 @@ working in a year. These keep working.
 | [`transcript-player/`](transcript-player/) | Plays local audio in sync with a transcript JSON, word by word |
 | [`climb-viewer/`](climb-viewer/) | Reviews pose-detection output against a climbing video on a scrubable timeline |
 | [`room-planner/`](room-planner/) | Drag-and-drop 2D furniture layout for a room, with collision and clearance checks |
+| [`shadowing/`](shadowing/) | Reads Mandarin articles aloud with word-level highlighting and an auto-pause drill for shadowing |
 
 ## Local development
 
