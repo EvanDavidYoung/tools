@@ -1,0 +1,13 @@
+{
+  // tools.evanyoung.dev is a Worker serving this directory as static assets — not a
+  // Pages project. Deploy with `npx wrangler deploy` from the repo root; see
+  // .claude/skills/deploy/SKILL.md. .assetsignore decides what stays off the web.
+  "$schema": "https://developers.cloudflare.com/workers/wrangler/configuration/",
+  "name": "tools",
+  "compatibility_date": "2026-09-17",
+  "observability": { "enabled": true },
+  "assets": { "directory": "." },
+  "routes": [
+    { "pattern": "tools.evanyoung.dev", "custom_domain": true }
+  ]
+}

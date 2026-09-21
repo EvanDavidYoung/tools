@@ -1,0 +1,15 @@
+.git
+.git/**
+.gitignore
+.assetsignore
+.claude
+.claude/**
+.conductor
+.conductor/**
+.context
+.context/**
+.wrangler
+.wrangler/**
+wrangler.jsonc
+wrangler.toml
+README.md

@@ -50,6 +50,12 @@ loader uses `fetch()`, which needs a real origin.
 
 ## Deploying
 
+The site is a Cloudflare Worker (named `tools`) serving this directory as static
+assets — not a Pages project. From the repo root:
+
 ```
-wrangler pages deploy .
+npx --yes wrangler deploy
 ```
+
+`wrangler.jsonc` holds the config and `.assetsignore` decides what stays off the
+web. The deploy ships the working tree, not a commit, so check `git status` first.
