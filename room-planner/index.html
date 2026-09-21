@@ -23,6 +23,8 @@
   .catalog button, .inroom button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; margin-bottom: 4px; }
   .catalog .swatch, .inroom .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.2); }
   .catalog .dim, .inroom .dim { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .catalog .rm { color: var(--muted); padding: 0 1px; }
+  .catalog .rm:hover { color: var(--bad); }
   .inroom button.sel { border-color: var(--accent); background: #eef3fd; }
   .inroom button.bad .dim { color: var(--bad); }
   main { display: flex; flex-direction: column; min-width: 0; }
@@ -35,7 +37,7 @@
   kbd { font: 11px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: #fff; }
   label.field { display: block; margin-bottom: 8px; }
   label.field span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
-  input[type=text], input[type=number], textarea { font: inherit; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; }
+  input[type=text], input[type=number], select, textarea { font: inherit; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
   textarea { font: 11px/1.4 ui-monospace, Menlo, monospace; height: 190px; resize: vertical; }
   input[type=color] { width: 100%; height: 30px; border: 1px solid var(--line); border-radius: 6px; padding: 2px; background: #fff; }
   .row { display: flex; gap: 8px; }
@@ -47,6 +49,32 @@
   .warn { color: var(--bad); font-weight: 600; margin: 8px 0; }
   .muted { color: var(--muted); }
   small { color: var(--muted); display: block; margin-top: 4px; }
+  .op { border: 1px solid var(--line); border-radius: 8px; padding: 8px 8px 2px; margin-bottom: 6px; }
+  .op.sel { border-color: var(--accent); background: #f5f8ff; }
+  .op-head { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
+  .op-head .muted { font-weight: 400; font-size: 11px; margin-left: auto; }
+  .op-head button { padding: 0 6px; line-height: 1.5; }
+  .op label.field { margin-bottom: 6px; }
+  .addrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  dialog { border: none; border-radius: 12px; padding: 0; width: 430px; max-width: 92vw;
+           max-height: 88vh; overflow: auto; color: var(--ink); box-shadow: 0 14px 44px rgba(0,0,0,.28); }
+  dialog::backdrop { background: rgba(35,32,28,.45); }
+  .dlg { padding: 18px; }
+  .dlg h1 { margin-bottom: 6px; }
+  .dlg h2 { margin-top: 20px; }
+  .dlg .step { border-top: 1px solid var(--line); padding-top: 2px; }
+  .dlg textarea { height: 104px; }
+  .ol { margin: 0 0 8px; padding-left: 18px; color: var(--muted); font-size: 12px; }
+  .ol li { margin-bottom: 2px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 12px; }
+  .presets button { padding: 3px 7px; font-size: 12px; }
+  .echo { color: var(--muted); font-size: 11px; min-height: 15px; margin-bottom: 4px; }
+  .echo.bad { color: var(--bad); }
+  body.dropping::after { content: "Drop a .json layout to open it"; position: fixed; inset: 0;
+    display: grid; place-items: center; background: rgba(244,241,234,.85); border: 3px dashed var(--accent);
+    font-size: 15px; color: var(--accent); z-index: 9; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -62,17 +90,19 @@
   <main>
     <div class="toolbar">
       <button id="undoBtn" title="Undo (⌘Z)">↶ Undo</button>
+      <button id="importBtn" class="primary">Import a room…</button>
       <button id="pngBtn">Export PNG</button>
       <button id="saveBtn">Save layout (.json)</button>
       <button id="loadBtn">Load layout</button>
-      <button id="resetBtn" class="danger">Reset</button>
+      <button id="resetBtn" class="danger">Clear furniture</button>
       <input type="file" id="fileInput" accept="application/json,.json" hidden>
       <span class="status" id="status"></span>
     </div>
     <div id="stage"><svg id="room" xmlns="http://www.w3.org/2000/svg"></svg></div>
     <div class="hint">
       Drag to move · <kbd>R</kbd> rotate · <kbd>⌫</kbd> delete · <kbd>←↑→↓</kbd> nudge 1″ (<kbd>Shift</kbd> 1′) ·
-      <kbd>⌘D</kbd> duplicate · <kbd>⌘Z</kbd> undo · hold <kbd>Shift</kbd> while dragging to skip wall snapping · 1 grid square = 1 ft
+      <kbd>⌘D</kbd> duplicate · <kbd>⌘Z</kbd> undo · hold <kbd>Shift</kbd> while dragging to skip wall snapping ·
+      drag a window or door to slide it along its wall · 1 grid square = 1 ft
     </div>
   </main>
 
@@ -82,18 +112,202 @@
   </aside>
 </div>
 
+<dialog id="setup">
+  <div class="dlg">
+    <h1>Get your room in here</h1>
+    <p class="sub">Nothing leaves your browser — the AI step happens in your own chat window,
+      and you paste the result back by hand.</p>
+
+    <h2 class="step">Let an AI measure it up</h2>
+    <ol class="ol">
+      <li>Copy the prompt below and paste it into ChatGPT, Claude or Gemini.</li>
+      <li>Give it whatever you have: photos of the room, a floor plan, a listing
+        screenshot, furniture model numbers, or numbers off a tape measure.</li>
+      <li>Paste the JSON it hands back into the box here.</li>
+    </ol>
+    <div class="btns" style="margin-bottom:8px">
+      <button id="suCopy">Copy the prompt</button>
+      <button id="suShow">Read it</button>
+    </div>
+    <textarea id="suPaste" spellcheck="false" placeholder='Paste the JSON here — code fences and stray chat around it are fine.'></textarea>
+    <div class="echo" id="suPasteEcho"></div>
+    <div class="btns"><button id="suImport" class="primary">Import this</button></div>
+
+    <h2 class="step">Or type in the four walls yourself</h2>
+    <label class="field"><span>Name</span><input type="text" id="suName" value="My room"></label>
+    <div class="row">
+      <label class="field"><span>Width (left to right)</span><input type="text" id="suW" value="12'"></label>
+      <label class="field"><span>Depth (top to bottom)</span><input type="text" id="suD" value="12'"></label>
+    </div>
+    <div class="echo" id="suEcho"></div>
+    <div class="presets" id="suPresets"></div>
+    <div class="btns"><button id="suCreate">Create an empty room</button></div>
+
+    <h2 class="step">Or poke at the sample</h2>
+    <div class="btns"><button id="suSample">Load the built-in bedroom</button></div>
+
+    <small id="suKeep"></small>
+    <div class="btns" style="margin-top:14px"><button id="suCancel">Cancel</button></div>
+  </div>
+</dialog>
+
+<dialog id="promptDlg">
+  <div class="dlg">
+    <h1>The prompt</h1>
+    <p class="sub">Also in the repo as <code>import-prompt.md</code>.</p>
+    <textarea id="promptText" spellcheck="false" readonly style="height:300px"></textarea>
+    <div class="btns">
+      <button id="pdCopy" class="primary">Copy</button>
+      <button id="pdClose">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="text/plain" id="promptSrc">
+You are helping me turn a real room into a floor plan for a browser tool called
+Room Planner. Your only job is to end up with one JSON object describing my room
+and my furniture. Work in **inches** throughout.
+
+## How to run this
+
+0. If I paste you a layout in the format below, I'm asking you to *change* an existing
+   one: edit it and hand the whole thing back in the same shape.
+1. Ask me for what you need, a few questions at a time, in plain language. Start
+   with the room itself, then the windows/doors/radiators/closets, then the
+   furniture.
+2. I may send photos, a floor plan, a listing, product links, or measurements.
+   Read dimensions straight off a floor plan or a tape measure in a photo when
+   you can.
+3. **Never guess a scale from a photo alone.** If you only have pictures, ask me
+   for one known length — a wall, a doorway width, the bed — and scale from that.
+4. If I don't know something, fall back to a standard size, and list every
+   assumption you made *before* the JSON so I can correct you.
+5. Round to the nearest half inch. Don't pad "for safety" — the tool does
+   clearance checks itself, and inflated sizes make them wrong.
+
+## The coordinate system
+
+- The plan is seen from above. **x** runs left→right, **y** runs top→bottom, and
+  `(0, 0)` is the room's top-left inside corner.
+- Walls are named like a compass rose on that drawing: **N** = top, **S** =
+  bottom, **W** = left, **E** = right. Which real-world direction is "up" doesn't
+  matter — pick whatever made the room easiest to describe and tell me what you
+  picked.
+- For anything attached to a wall, `offset` is how far along that wall it starts,
+  measured from the corner nearest the top-left: from the **left** end for the N
+  and S walls, from the **top** end for the W and E walls.
+- `w` is always the left-to-right size, `d` the top-to-bottom size.
+
+## The JSON
+
+Output exactly one fenced ```json block, with this shape:
+
+```json
+{
+  "room": {
+    "name": "Bedroom",
+    "w": 132,
+    "d": 132,
+    "openings": [
+      { "type": "window",   "wall": "W", "offset": 12, "width": 36 },
+      { "type": "door",     "wall": "E", "offset": 96, "width": 32, "hinge": "end" },
+      { "type": "radiator", "wall": "W", "offset": 15, "width": 30, "depth": 9 },
+      { "type": "closet",   "wall": "S", "offset": 0,  "width": 60, "depth": 29,
+        "clearance": 20, "doors": 2, "inside": false }
+    ]
+  },
+  "items": [
+    { "name": "Queen bed", "w": 60, "d": 80, "x": 6, "y": 4, "rot": 0,
+      "color": "#8fb3d9", "kind": "bed" },
+    { "name": "Nightstand", "w": 20, "d": 16, "x": 68, "y": 4, "color": "#c9a27a" },
+    { "name": "Rug 8×10", "w": 96, "d": 120, "x": 18, "y": 6,
+      "color": "#e8cfae", "floor": true }
+  ]
+}
+```
+
+### room
+
+| Field | Meaning |
+|---|---|
+| `name` | What I call the room. |
+| `w`, `d` | Inside floor dimensions, inches, wall to wall. |
+| `openings` | Everything fixed to the walls. Leave it `[]` if I haven't told you any. |
+
+### openings
+
+- **`window`** — `wall`, `offset`, `width`. Drawn in the wall itself; furniture is
+  allowed in front of one, so don't fake a clearance zone with a fat window.
+- **`door`** — `wall`, `offset`, `width`, `hinge`. `width` is the doorway opening
+  (32 is typical for an interior door, 36 for an entry). `hinge` is `"start"` if
+  the hinges are at the low-`offset` end of the opening, `"end"` if they're at the
+  high end. The tool reserves a square of `width × width` for the swing, so a
+  sliding, pocket or removed door should be a `door` with the right `width`
+  anyway — tell me if you did that and I'll delete the swing myself.
+- **`radiator`** — `wall`, `offset`, `width`, `depth` (how far it juts into the
+  room). Use this for any solid wall fixture furniture must not cover: baseboard
+  heaters, a hearth, a bulkhead.
+- **`closet`** — `wall`, `offset`, `width`, `depth`, `clearance`, `doors`,
+  `inside`. `depth` is front-to-back inside the closet. `clearance` is the strip
+  of floor the doors need (about 20 for bifolds, 0 for sliders). `doors` is how
+  many door panels to draw. `inside` is `false` for a closet recessed into the
+  wall (the usual case — it sits outside the room rectangle and costs no floor
+  space), `true` for one boxed out into the room, which *does* eat floor space, in
+  which case `w`/`d` above must be the full room rectangle including that box.
+
+### items
+
+One entry per piece of furniture.
+
+| Field | Meaning |
+|---|---|
+| `name` | Short label drawn on the piece. |
+| `w`, `d` | Footprint. `w` is side-to-side and `d` front-to-back **as the piece is drawn unrotated** — a bed's `d` is head-to-foot. |
+| `x`, `y` | Top-left corner of the footprint where it sits in the room, *after* any rotation. Optional; leave them out and the tool drops the piece in the middle for me to drag. |
+| `rot` | `0`, `90`, `180` or `270`, clockwise. At `0` a bed's headboard is at the top (N). At `90` it's against the E wall. |
+| `color` | Hex. Pick from the palette below so the plan stays readable. |
+| `kind` | `"bed"` draws a headboard and pillows, `"round"` draws an ellipse (chairs, lamps, plants, round tables). Omit for a plain rectangle. |
+| `floor` | `true` for rugs only — they're drawn underneath and never count as a collision. |
+
+Palette: beds `#8fb3d9` · wood storage `#b88b5e` · dark wood `#a0764c` · light wood
+`#c9a27a` · desks `#9aa57a` · chairs `#6f7d5a` · soft seating `#d39b8b` ·
+electronics `#7d7d7d` · rugs `#e8cfae` · lamps `#f0d36b` · plants `#6bab6b`.
+
+### Standard sizes, if I don't know mine
+
+Twin 39×75 · Full 54×75 · Queen 60×80 · King 76×80 · nightstand 20×16 · dresser
+60×18 · tall dresser 34×18 · wardrobe 40×24 · bookshelf 32×12 · desk 48×24 · desk
+chair 24×24 · armchair 32×32 · bench 48×16 · TV stand 48×16 · 5×8 rug 60×96 ·
+8×10 rug 96×120 · interior door 32 · entry door 36.
+
+## Before you print the JSON
+
+Check all of these, and fix anything that fails:
+
+- Every item sits fully inside the room: `0 ≤ x`, `x + w ≤ room.w`, `0 ≤ y`,
+  `y + d ≤ room.d` (using the rotated footprint).
+- No two non-`floor` items overlap, and none sits on a radiator or inside a door
+  swing or a closet's clearance strip.
+- There's a walkway of at least 30 inches through the room and to the door, and
+  at least 24 inches of clear floor along any side of a bed that isn't against a
+  wall.
+- Numbers are plain numbers, not strings like `"5 feet"`, and the JSON parses.
+
+Then reply with, in this order: a short list of the assumptions you made, a
+one-line note of which wall you called N, and the single ```json block. No other
+text after the block.
+</script>
+
 <script>
 // ---------- Config ----------
 const STORAGE_KEY = 'room-planner.v1';
+const PIECES_KEY = 'room-planner.pieces.v1';
 const WALL = 6;        // wall thickness drawn outside the room, inches
 const WALL_SNAP = 4;   // pieces within this distance of a wall snap flush to it
 const MARGIN = 38;     // space around the room for labels, inches
 
 // Generic furniture, sizes in inches (w = side-to-side, d = front-to-back).
 const CATALOG = [
-  { group: 'My furniture', name: 'My bed',        w: 57, d: 77,   color: '#8fb3d9', kind: 'bed' },
-  { group: 'My furniture', name: 'My nightstand', w: 16, d: 16,   color: '#c9a27a' },
-  { group: 'My furniture', name: 'My desk',       w: 46, d: 23.5, color: '#9aa57a' },
   { group: 'Beds',    name: 'Twin bed',     w: 39, d: 75,  color: '#8fb3d9', kind: 'bed' },
   { group: 'Beds',    name: 'Full bed',     w: 54, d: 75,  color: '#8fb3d9', kind: 'bed' },
   { group: 'Beds',    name: 'Queen bed',    w: 60, d: 80,  color: '#8fb3d9', kind: 'bed' },
@@ -115,30 +329,88 @@ const CATALOG = [
   { group: 'Decor', name: 'Custom box', w: 24, d: 24,  color: '#b0b0b0' },
 ];
 
-// Room size and window positions are estimated from the floor plan; door, radiator and
-// closet depth are measured. Windows are on the west (left) wall with the radiator under
-// the northern one. The closet is recessed into the south wall (y = room depth), and the
-// entry door is on the east wall at the south end. Offsets run from the top/left corner.
-const ROOM_VERSION = 3;
+// Your own pieces, measured once and kept in localStorage. Editable from the left panel.
+const SEED_PIECES = [
+  { name: 'My bed',        w: 57, d: 77,   color: '#8fb3d9', kind: 'bed' },
+  { name: 'My nightstand', w: 16, d: 16,   color: '#c9a27a' },
+  { name: 'My desk',       w: 46, d: 23.5, color: '#9aa57a' },
+];
+
+// ---------- Rooms ----------
+// A room is its floor size plus a list of things fixed to the walls, each placed by which
+// wall it is on and how far along that wall it starts. Everything is inches.
+const ROOM_VERSION = 4;
+const WALLS = { N: 'N · top', S: 'S · bottom', W: 'W · left', E: 'E · right' };
+
+function blankRoom(w = 144, d = 144, name = 'My room') {
+  return { version: ROOM_VERSION, name, w, d, openings: [] };
+}
+
+// The room this tool was written for: what you get on a fresh browser, and the worked
+// example to fall back on. Size and windows are estimated from the floor plan; the door,
+// radiator and closet depth are measured. Windows are on the west wall with the radiator
+// under the northern one; the closet is recessed into the south wall.
 function defaultRoom() {
   return {
-    version: ROOM_VERSION,
-    w: 132, d: 132,   // 11' × 11' of floor, not counting the recessed closet
+    version: ROOM_VERSION, name: 'Pangyo bedroom', w: 132, d: 132,
     openings: [
       { type: 'window', wall: 'W', offset: 12, width: 36 },
       { type: 'window', wall: 'W', offset: 72, width: 36 },
       { type: 'radiator', wall: 'W', offset: 15, width: 30, depth: 9 },
-      { type: 'door',   wall: 'E', offset: 96, width: 33.5, hinge: 'end' },
-      { type: 'closet', x: 0, y: 132, w: 60, d: 29, clearance: 20, doors: 2 },
+      { type: 'door', wall: 'E', offset: 96, width: 33.5, hinge: 'end' },
+      { type: 'closet', wall: 'S', offset: 0, width: 60, depth: 29, clearance: 20, doors: 2 },
     ],
   };
 }
 
+// Reads 138, 11.5, 11', 11' 6", 11ft 6in, 6" — all as inches. NaN if it makes no sense.
+function parseLen(str) {
+  const s = String(str).trim().toLowerCase().replace(/[”″]/g, '"').replace(/[’′]/g, "'");
+  if (!s) return NaN;
+  if (/^-?[\d.]+$/.test(s)) return parseFloat(s);
+  const ft = s.match(/([\d.]+)\s*(?:'|ft\b|feet|foot)/);
+  const inch = s.match(/([\d.]+)\s*(?:"|in\b|inch(?:es)?)/);
+  if (!ft && !inch) return NaN;
+  let total = (ft ? parseFloat(ft[1]) * 12 : 0) + (inch ? parseFloat(inch[1]) : 0);
+  if (ft && !inch) {                                    // "11' 6" — a bare tail is inches
+    const tail = s.slice(ft.index + ft[0].length).trim().match(/^([\d.]+)$/);
+    if (tail) total += parseFloat(tail[1]);
+  }
+  return total;
+}
+function fmtInput(v) {
+  const r = Math.round(v * 10) / 10, ft = Math.floor(r / 12), i = Math.round((r - ft * 12) * 10) / 10;
+  return ft ? (i ? `${ft}' ${i}"` : `${ft}'`) : `${i}"`;
+}
+
+// Brings older saves and hand-written JSON up to the current shape. Never throws away a
+// room it doesn't recognise — worst case, openings it can't read are dropped.
+function migrateRoom(room) {
+  if (!room || !(room.w > 0) || !(room.d > 0)) return null;
+  const out = { version: ROOM_VERSION, name: room.name || 'My room', w: +room.w, d: +room.d, openings: [] };
+  for (const o of (Array.isArray(room.openings) ? room.openings : [])) {
+    if (!o || !o.type) continue;
+    if (o.type === 'closet' && o.wall === undefined) {
+      // v3 stored closets as an absolute box; they were always recessed into the S wall.
+      const y = +o.y || 0, dep = +o.d || 24, inside = y + dep <= out.d - 0.5;
+      out.openings.push({ type: 'closet', wall: 'S', offset: +o.x || 0, width: +o.w || 48,
+        depth: inside ? Math.max(1, out.d - y) : dep, clearance: +o.clearance || 0,
+        doors: +o.doors || 2, inside });
+    } else {
+      out.openings.push(o);
+    }
+  }
+  return out;
+}
+
 // ---------- State ----------
-let state = load() || { room: defaultRoom(), items: [] };
+const saved = load();
+let state = saved || { room: defaultRoom(), items: [] };
 let selectedId = null;
+let selectedOp = null;   // index into state.room.openings
 let history = [];
 let drag = null;
+let myPieces = loadPieces();
 
 const $ = id => document.getElementById(id);
 const svg = $('room');
@@ -147,17 +419,26 @@ function load() {
   try {
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!s || !s.room || !Array.isArray(s.items)) return null;
-    if (s.room.version !== ROOM_VERSION) s.room = defaultRoom();  // pick up room corrections, keep furniture
-    return s;
+    const room = migrateRoom(s.room);
+    return room ? { room, items: s.items } : null;
   } catch { return null; }
 }
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  document.title = `${state.room.name} — Room Planner`;
+}
+function loadPieces() {
+  try { const p = JSON.parse(localStorage.getItem(PIECES_KEY)); if (Array.isArray(p)) return p; } catch {}
+  return SEED_PIECES.map(p => ({ ...p }));
+}
+function savePieces() { localStorage.setItem(PIECES_KEY, JSON.stringify(myPieces)); renderCatalog(); }
 function snapshot() { history.push(JSON.stringify(state)); if (history.length > 200) history.shift(); }
 function undo() {
   const prev = history.pop();
   if (!prev) return;
   state = JSON.parse(prev);
   if (!find(selectedId)) selectedId = null;
+  if (selectedOp !== null && selectedOp >= state.room.openings.length) selectedOp = null;
   commit();
   renderRoomPanel();
 }
@@ -193,6 +474,25 @@ function rectFrom(f, a0, a1, i0, i1) {
   const [x0, y0] = f(a0, i0), [x1, y1] = f(a1, i1);
   return { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), d: Math.abs(y1 - y0) };
 }
+const attrs = r => `x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}"`;
+// How far along its wall a point sits, in the same units as an opening's offset.
+const along = (wall, p) => (wall === 'N' || wall === 'S') ? p.x : p.y;
+const wallLen = wall => (wall === 'N' || wall === 'S') ? state.room.w : state.room.d;
+
+// A closet runs `depth` back from its wall — outward, so it costs no floor space, or
+// inward if it was boxed out into the room. Its doors open into the room either way.
+function closetGeom(o) {
+  const f = frame(o.wall), dep = Math.max(1, o.depth || 24), inside = !!o.inside;
+  const a0 = o.offset, a1 = o.offset + o.width, c = o.clearance || 0;
+  const face = inside ? dep - WALL : 0;          // wall-relative depth of the door line
+  return {
+    f, face, doors: Math.max(1, Math.round(o.doors || 2)),
+    shell: inside ? rectFrom(f, a0, a1, 0, dep) : rectFrom(f, a0 - WALL, a1 + WALL, 0, -(dep + WALL)),
+    inner: inside ? rectFrom(f, a0 + WALL, a1 - WALL, 0, dep - WALL) : rectFrom(f, a0, a1, 0, -dep),
+    clear: c > 0 ? rectFrom(f, a0, a1, face, face + c) : null,
+    solid: inside ? rectFrom(f, a0, a1, 0, dep) : null,   // only a boxed-in closet eats floor
+  };
+}
 
 // Areas furniture should stay out of.
 function zones() {
@@ -200,9 +500,10 @@ function zones() {
     if (o.type === 'door') return [{ ...rectFrom(frame(o.wall), o.offset, o.offset + o.width, 0, o.width), label: 'door swing' }];
     if (o.type === 'radiator') return [{ ...rectFrom(frame(o.wall), o.offset, o.offset + o.width, 0, o.depth), label: 'radiator', solid: true }];
     if (o.type === 'closet') {
-      const c = o.clearance || 0;
-      return [{ x: o.x, y: o.y, w: o.w, d: o.d, label: 'closet', solid: true },
-              { x: o.x, y: o.y - c, w: o.w, d: c, label: 'closet doors' }];
+      const g = closetGeom(o), out = [];
+      if (g.solid) out.push({ ...g.solid, label: 'closet', solid: true });
+      if (g.clear) out.push({ ...g.clear, label: 'closet doors' });
+      return out;
     }
     return [];
   });
@@ -259,7 +560,20 @@ function place(it, x, y, snapWalls) {
 }
 
 // ---------- Actions ----------
-function select(id) { selectedId = id; render(); renderPanels(); }
+function select(id) {
+  selectedId = id;
+  const hadOp = selectedOp !== null;
+  selectedOp = null;
+  render(); renderPanels();
+  if (hadOp) renderRoomPanel();
+}
+
+function selectOp(i) {
+  selectedId = null;
+  selectedOp = i;
+  render(); renderPanels(); renderRoomPanel();
+  $('roomPanel').querySelector(`[data-opcard="${i}"]`)?.scrollIntoView({ block: 'nearest' });
+}
 
 function addItem(c) {
   snapshot();
@@ -302,10 +616,13 @@ function render(opts = {}) {
   const { w: W, d: D, openings } = state.room;
   const sel = opts.forExport ? null : find(selectedId);
   const bad = conflicts();
-  // Extra space below the room for closets recessed into the south wall.
-  const below = Math.max(0, ...openings.filter(o => o.type === 'closet').map(o => o.y + o.d - D));
-  const vbH = D + 2 * MARGIN + below;
-  svg.setAttribute('viewBox', `${-MARGIN} ${-MARGIN} ${W + 2 * MARGIN} ${vbH}`);
+  // Recessed closets hang outside the room, so widen the view on whichever wall they are on.
+  const pad = { N: MARGIN, S: MARGIN, W: MARGIN, E: MARGIN };
+  for (const o of openings)
+    if (o.type === 'closet' && !o.inside && WALLS[o.wall])
+      pad[o.wall] = Math.max(pad[o.wall], WALL + (o.depth || 24) + 22);
+  const vb = { x: -pad.W, y: -pad.N, w: W + pad.W + pad.E, d: D + pad.N + pad.S };
+  svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.d}`);
 
   let s = `<defs>
     <pattern id="grid" width="12" height="12" patternUnits="userSpaceOnUse">
@@ -317,23 +634,27 @@ function render(opts = {}) {
   </defs>
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">`;
 
-  if (opts.forExport) s += `<rect x="${-MARGIN}" y="${-MARGIN}" width="${W + 2 * MARGIN}" height="${vbH}" fill="#ffffff"/>`;
+  if (opts.forExport) s += `<rect ${attrs(vb)} fill="#ffffff"/>`;
 
   // Walls + floor
   s += `<rect x="${-WALL}" y="${-WALL}" width="${W + 2 * WALL}" height="${D + 2 * WALL}" fill="#3b3833"/>`;
   s += `<rect x="0" y="0" width="${W}" height="${D}" fill="#faf6ee"/>`;
   s += `<rect x="0" y="0" width="${W}" height="${D}" fill="url(#grid)"/>`;
 
-  // Windows, doors, closet
-  for (const o of openings) {
+  // Windows, doors, radiators and closets. Each one can be grabbed and slid along its wall.
+  const grow = (r, n) => ({ x: r.x - n, y: r.y - n, w: r.w + 2 * n, d: r.d + 2 * n });
+  openings.forEach((o, i) => {
+    if (!WALLS[o.wall] || !(o.width > 0)) return;
+    const f = frame(o.wall), on = !opts.forExport && i === selectedOp;
+    let g = `<g data-op="${i}" style="cursor:grab">`, ring = null;
+
     if (o.type === 'window') {
-      const f = frame(o.wall);
       const r = rectFrom(f, o.offset, o.offset + o.width, -WALL, 0);
       const [x1, y1] = f(o.offset, -WALL / 2), [x2, y2] = f(o.offset + o.width, -WALL / 2);
-      s += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}" fill="#d5ebfa" stroke="#5a8fb8" stroke-width="0.6"/>`;
-      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5a8fb8" stroke-width="0.6"/>`;
+      g += `<rect ${attrs(r)} fill="#d5ebfa" stroke="#5a8fb8" stroke-width="0.6"/>`;
+      g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5a8fb8" stroke-width="0.6"/>`;
+      ring = grow(r, 1);
     } else if (o.type === 'door') {
-      const f = frame(o.wall);
       const gap = rectFrom(f, o.offset, o.offset + o.width, -WALL - 0.5, 0.5);
       const swing = rectFrom(f, o.offset, o.offset + o.width, 0, o.width);
       const ah = o.hinge === 'start' ? o.offset : o.offset + o.width;   // hinge side
@@ -344,32 +665,45 @@ function render(opts = {}) {
         pts.push(f(ah + (ao - ah) * Math.cos(rad), o.width * Math.sin(rad)).join(','));
       }
       const [hx, hy] = f(ah, 0), [lx, ly] = f(ah, o.width);
-      s += `<rect x="${gap.x}" y="${gap.y}" width="${gap.w}" height="${gap.d}" fill="#faf6ee"/>`;
-      s += `<rect x="${swing.x}" y="${swing.y}" width="${swing.w}" height="${swing.d}" fill="#e0564a" fill-opacity="0.07"/>`;
-      s += `<polyline points="${pts.join(' ')}" fill="none" stroke="#8a8272" stroke-width="0.5" stroke-dasharray="1.5 1"/>`;
-      s += `<line x1="${hx}" y1="${hy}" x2="${lx}" y2="${ly}" stroke="#3b3833" stroke-width="1.2"/>`;
+      g += `<rect ${attrs(gap)} fill="#faf6ee"/>`;
+      g += `<rect ${attrs(swing)} fill="#e0564a" fill-opacity="0.07" pointer-events="none"/>`;
+      g += `<polyline points="${pts.join(' ')}" fill="none" stroke="#8a8272" stroke-width="0.5" stroke-dasharray="1.5 1" pointer-events="none"/>`;
+      g += `<line x1="${hx}" y1="${hy}" x2="${lx}" y2="${ly}" stroke="#3b3833" stroke-width="1.2" pointer-events="none"/>`;
+      ring = grow(gap, 1);
     } else if (o.type === 'radiator') {
-      const f = frame(o.wall);
-      const r = rectFrom(f, o.offset, o.offset + o.width, 0, o.depth);
-      s += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.d}" fill="#c9ccd1" stroke="#6b6f76" stroke-width="0.8"/>`;
+      const r = rectFrom(f, o.offset, o.offset + o.width, 0, o.depth || 6);
+      g += `<rect ${attrs(r)} fill="#c9ccd1" stroke="#6b6f76" stroke-width="0.8"/>`;
       for (let a = o.offset + 3; a < o.offset + o.width - 1; a += 3) {  // fins
-        const [x1, y1] = f(a, 1), [x2, y2] = f(a, o.depth - 1);
-        s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#8d9199" stroke-width="0.5"/>`;
+        const [x1, y1] = f(a, 1), [x2, y2] = f(a, (o.depth || 6) - 1);
+        g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#8d9199" stroke-width="0.5" pointer-events="none"/>`;
       }
+      ring = grow(r, 1);
     } else if (o.type === 'closet') {
-      const c = o.clearance || 0, n = o.doors || 2, dw = o.w / n;
-      s += `<rect x="${o.x}" y="${o.y - c}" width="${o.w}" height="${c}" fill="#e0564a" fill-opacity="0.07"/>`;
-      // Walls around the closet; its interior is drawn over the room wall so the front reads as open.
-      s += `<rect x="${o.x - WALL}" y="${o.y}" width="${o.w + 2 * WALL}" height="${o.d + WALL}" fill="#3b3833"/>`;
-      s += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.d}" fill="#f1ece2"/>`;
-      s += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.d}" fill="url(#hatch)"/>`;
-      s += `<text x="${o.x + o.w / 2}" y="${o.y + o.d / 2 + 1.5}" font-size="4.5" text-anchor="middle" fill="#6d665a">Closet</text>`;
-      for (let k = 0; k < n; k++) {  // bifold door symbols
-        const x0 = o.x + k * dw, p = dw / 4, h = dw / 5;
-        s += `<polyline points="${x0},${o.y} ${x0 + p},${o.y - h} ${x0 + 2 * p},${o.y} ${x0 + 3 * p},${o.y - h} ${x0 + dw},${o.y}" fill="none" stroke="#3b3833" stroke-width="0.6"/>`;
+      const c = closetGeom(o), dw = o.width / c.doors;
+      if (c.clear) g += `<rect ${attrs(c.clear)} fill="#e0564a" fill-opacity="0.07" pointer-events="none"/>`;
+      // The shell is drawn over the room wall so the closet front reads as open.
+      g += `<rect ${attrs(c.shell)} fill="#3b3833"/>`;
+      g += `<rect ${attrs(c.inner)} fill="#f1ece2"/><rect ${attrs(c.inner)} fill="url(#hatch)"/>`;
+      if (Math.min(c.inner.w, c.inner.d) > 8)
+        g += `<text x="${c.inner.x + c.inner.w / 2}" y="${c.inner.y + c.inner.d / 2 + 1.5}" font-size="4.5" text-anchor="middle" fill="#6d665a" pointer-events="none">Closet</text>`;
+      for (let k = 0; k < c.doors; k++) {   // bifold door symbols along the opening
+        const a = o.offset + k * dw, q = dw / 4, h = dw / 5;
+        const line = [[a, c.face], [a + q, c.face + h], [a + 2 * q, c.face], [a + 3 * q, c.face + h], [a + dw, c.face]]
+          .map(([aa, ii]) => f(aa, ii).join(',')).join(' ');
+        g += `<polyline points="${line}" fill="none" stroke="#3b3833" stroke-width="0.6" pointer-events="none"/>`;
       }
+      ring = grow(c.shell, 1);
+    } else {
+      return;
     }
-  }
+
+    // An invisible strip across the wall keeps thin openings easy to grab.
+    if (o.type !== 'closet')
+      g += `<rect ${attrs(rectFrom(f, o.offset, o.offset + o.width, -WALL - 2, 3))} fill="transparent"/>`;
+    if (on && ring)
+      g += `<rect ${attrs(ring)} fill="none" stroke="#2f6fde" stroke-width="1" stroke-dasharray="2 1.5" pointer-events="none"/>`;
+    s += g + `</g>`;
+  });
 
   // Furniture (selected piece drawn last so it stays visible while dragging)
   const order = state.items.filter(i => i !== sel);
@@ -378,13 +712,15 @@ function render(opts = {}) {
 
   if (sel) s += drawGaps(sel);
 
-  // Wall dimensions + scale bar + compass
-  s += `<text x="${W / 2}" y="${-WALL - 5}" font-size="5" text-anchor="middle" fill="#5d574c">${fmt(W)}</text>`;
-  s += `<text x="${-WALL - 5}" y="${D / 2}" font-size="5" text-anchor="middle" fill="#5d574c" transform="rotate(-90 ${-WALL - 5} ${D / 2})">${fmt(D)}</text>`;
-  const sy = D + WALL + below + 14;
+  // Room name + wall dimensions + scale bar + compass
+  const ty = -pad.N + 12, lx = -pad.W + 11;
+  s += `<text x="${-pad.W + 4}" y="${ty}" font-size="5.5" fill="#5d574c" font-weight="600">${esc(state.room.name)}</text>`;
+  s += `<text x="${W / 2}" y="${ty}" font-size="5" text-anchor="middle" fill="#5d574c">${fmt(W)}</text>`;
+  s += `<text x="${lx}" y="${D / 2}" font-size="5" text-anchor="middle" fill="#5d574c" transform="rotate(-90 ${lx} ${D / 2})">${fmt(D)}</text>`;
+  const sy = D + pad.S - 14;
   s += `<path d="M0 ${sy - 2}V${sy}H24V${sy - 2}M12 ${sy}V${sy - 1.5}" fill="none" stroke="#5d574c" stroke-width="0.6"/>`;
   s += `<text x="28" y="${sy + 1}" font-size="4" fill="#5d574c">2 ft</text>`;
-  s += `<text x="${W}" y="${sy + 1}" font-size="4" text-anchor="end" fill="#8a8272">N ↑ · windows on W wall</text>`;
+  s += `<text x="${W}" y="${sy + 1}" font-size="4" text-anchor="end" fill="#8a8272">N ↑</text>`;
 
   s += `</g>`;
   svg.innerHTML = s;
@@ -451,16 +787,30 @@ function drawGaps(it) {
        + line(cx, b.y + b.d, cx, B, B - b.y - b.d, cx + 1.5, (b.y + b.d + B) / 2 + 1.2).replace('text-anchor="middle"', 'text-anchor="start"');
 }
 
+let flashMsg = '', flashUntil = 0;
+function flash(msg, detail = '') {
+  flashMsg = msg; flashUntil = Date.now() + 8000;
+  $('status').title = detail;
+  updateStatus(conflicts());
+  setTimeout(() => { if (Date.now() >= flashUntil) updateStatus(conflicts()); }, 8100);
+}
+
 function updateStatus(bad) {
   const el = $('status');
   const n = state.items.length;
+  if (flashMsg && Date.now() < flashUntil) { el.className = 'status'; el.textContent = flashMsg; return; }
+  el.title = '';
   el.className = 'status' + (bad.size ? ' bad' : '');
   el.textContent = bad.size ? `⚠ ${bad.size} piece${bad.size > 1 ? 's' : ''} in a bad spot`
                             : `${n} piece${n === 1 ? '' : 's'} · no conflicts`;
 }
 
 function renderCatalog() {
-  let html = '', group = '';
+  let html = '<h3>My pieces</h3>';
+  html += myPieces.length
+    ? myPieces.map((c, i) => `<button data-my="${i}"><span class="swatch" style="background:${c.color}"></span>${esc(c.name)}<span class="dim">${c.w}×${c.d}″</span><span class="rm" data-rm="${i}" title="Forget this piece">×</span></button>`).join('')
+    : `<p class="muted" style="margin:0 0 4px">Size a piece up, then “Save to my pieces”.</p>`;
+  let group = '';
   CATALOG.forEach((c, i) => {
     if (c.group !== group) { group = c.group; html += `<h3>${group}</h3>`; }
     html += `<button data-cat="${i}"><span class="swatch" style="background:${c.color}"></span>${esc(c.name)}<span class="dim">${c.w}×${c.d}″</span></button>`;
@@ -500,26 +850,78 @@ function renderPanels() {
     <div class="btns">
       <button data-act="rotate">↻ Rotate</button>
       <button data-act="dup">Duplicate</button>
+      <button data-act="save">Save to my pieces</button>
       <button data-act="del" class="danger">Delete</button>
     </div>`;
 }
 
-function renderRoomPanel() {
+let jsonOpen = false;
+const OP_LABEL = { window: 'Window', door: 'Door', radiator: 'Radiator', closet: 'Closet' };
+const OP_NEW = {
+  window: r => ({ type: 'window', wall: 'N', offset: round1(r.w / 2 - 18), width: 36 }),
+  door: r => ({ type: 'door', wall: 'E', offset: round1(r.d / 2 - 16), width: 32, hinge: 'end' }),
+  radiator: r => ({ type: 'radiator', wall: 'N', offset: 12, width: 30, depth: 8 }),
+  closet: r => ({ type: 'closet', wall: 'S', offset: 0, width: 60, depth: 26, clearance: 20, doors: 2 }),
+};
+
+// One card per opening. Lengths are typed in inches or in feet-and-inches; the label
+// echoes back what the tool read, so a typo is visible without applying it.
+function opCard(o, i) {
+  const len = (k, label, val) => `<label class="field"><span>${label} · ${fmt(val)}</span>
+      <input type="text" inputmode="decimal" data-op="${i}" data-k="${k}" value="${val}"></label>`;
+  const pick = (k, opts) => `<label class="field"><span>${opts.label}</span><select data-op="${i}" data-k="${k}">${
+    opts.of.map(([v, t]) => `<option value="${v}"${(o[k] || opts.of[0][0]) === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`;
+
+  let h = `<div class="row">${pick('wall', { label: 'Wall', of: Object.entries(WALLS) })}${len('offset', 'From corner', o.offset)}</div>`;
+  h += `<div class="row">${len('width', 'Along the wall', o.width)}`;
+  if (o.type === 'door') h += pick('hinge', { label: 'Hinges', of: [['end', 'Far end'], ['start', 'Near end']] });
+  if (o.type === 'radiator') h += len('depth', 'Sticks out', o.depth || 6);
+  if (o.type === 'closet') h += len('depth', 'Depth', o.depth || 24);
+  h += `</div>`;
+  if (o.type === 'closet') {
+    h += `<div class="row">${len('clearance', 'Door clearance', o.clearance || 0)}
+      <label class="field"><span>Door panels</span><input type="number" min="1" max="8" step="1" data-op="${i}" data-k="doors" value="${o.doors || 2}"></label></div>
+      <label class="check"><input type="checkbox" data-op="${i}" data-k="inside"${o.inside ? ' checked' : ''}> Boxed into the room (takes floor space)</label>`;
+  }
+  return `<div class="op${i === selectedOp ? ' sel' : ''}" data-opcard="${i}">
+      <div class="op-head">${OP_LABEL[o.type] || esc(o.type)}<span class="muted">${esc(o.wall || '?')} wall</span>
+      <button data-del="${i}" class="danger" title="Remove">×</button></div>${h}</div>`;
+}
+
+function renderRoomPanel(focus) {
   const r = state.room;
   $('roomPanel').innerHTML = `
     <h2>Room</h2>
+    <label class="field"><span>Name</span><input type="text" id="roomName" value="${esc(r.name)}"></label>
     <div class="row">
-      <label class="field"><span>Width (in) · ${fmt(r.w)}</span><input type="number" min="24" step="1" id="roomW" value="${r.w}"></label>
-      <label class="field"><span>Depth (in) · ${fmt(r.d)}</span><input type="number" min="24" step="1" id="roomD" value="${r.d}"></label>
+      <label class="field"><span>Width · ${fmt(r.w)}</span><input type="text" id="roomW" value="${r.w}"></label>
+      <label class="field"><span>Depth · ${fmt(r.d)}</span><input type="text" id="roomD" value="${r.d}"></label>
     </div>
-    <label class="field"><span>Windows, doors, radiator and closet (JSON)</span><textarea id="openings" spellcheck="false">${esc(JSON.stringify(r.openings, null, 1))}</textarea></label>
-    <small>Walls: N = top, S = bottom, W = left, E = right. <code>offset</code> is inches from the top/left corner.
-      Doors: <code>hinge</code> is "start" or "end". Radiator: <code>depth</code> is how far it sticks out from the wall. Closet: <code>x, y, w, d</code> in room inches; <code>clearance</code> is the space its doors need.</small>
-    <div class="btns">
-      <button id="applyRoom" class="primary">Apply room changes</button>
-      <button id="defaultRoom">Restore estimated room</button>
+    <div id="roomErr" class="warn"></div>
+    <h2>Walls &amp; fixtures</h2>
+    <div class="addrow">
+      <button data-add="window">+ Window</button><button data-add="door">+ Door</button>
+      <button data-add="radiator">+ Radiator</button><button data-add="closet">+ Closet</button>
     </div>
-    <div id="roomErr" class="warn"></div>`;
+    ${r.openings.length ? r.openings.map(opCard).join('')
+      : `<p class="muted">Nothing on the walls yet. Add one above, then drag it into place on the plan.</p>`}
+    <details${jsonOpen ? ' open' : ''} id="jsonBox">
+      <summary>Edit the walls as JSON</summary>
+      <textarea id="openings" spellcheck="false">${esc(JSON.stringify(r.openings, null, 1))}</textarea>
+      <small>Walls: N = top, S = bottom, W = left, E = right. <code>offset</code> runs along the
+        wall from its top or left end. Closets take <code>depth</code>, <code>clearance</code>,
+        <code>doors</code> and <code>inside</code>; radiators take <code>depth</code>; doors take
+        <code>hinge</code> ("start" or "end").</small>
+      <div class="btns"><button id="applyJson" class="primary">Apply JSON</button></div>
+    </details>
+    <div class="btns" style="margin-top:14px">
+      <button id="panelImport">Import a room…</button>
+      <button id="copyJson">Copy this layout</button>
+    </div>`;
+  if (focus) {
+    const el = $('roomPanel').querySelector(`[data-op="${focus.op}"][data-k="${focus.k}"]`);
+    if (el) { el.focus(); el.select?.(); }
+  }
 }
 
 // ---------- Events ----------
@@ -533,35 +935,58 @@ svg.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   if (e.target.closest('[data-action="rotate"]')) { rotate(find(selectedId)); return; }
   const g = e.target.closest('[data-id]');
-  if (!g) { if (selectedId) select(null); return; }
-  const it = find(g.dataset.id);
-  const p = toRoom(e);
-  snapshot();
-  drag = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, moved: false };
-  svg.setPointerCapture(e.pointerId);
-  if (selectedId !== it.id) select(it.id);
+  if (g) {
+    const it = find(g.dataset.id);
+    const p = toRoom(e);
+    snapshot();
+    drag = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, moved: false };
+    svg.setPointerCapture(e.pointerId);
+    if (selectedId !== it.id) select(it.id);
+    return;
+  }
+  const og = e.target.closest('[data-op]');
+  if (og) {
+    const i = +og.dataset.op, o = state.room.openings[i];
+    snapshot();
+    drag = { op: i, grab: along(o.wall, toRoom(e)) - o.offset, moved: false };
+    svg.setPointerCapture(e.pointerId);
+    if (selectedOp !== i) selectOp(i);
+    return;
+  }
+  if (selectedId || selectedOp !== null) select(null);
 });
 
 svg.addEventListener('pointermove', e => {
   if (!drag) return;
-  const it = find(drag.id);
   const p = toRoom(e);
-  place(it, Math.round(p.x - drag.dx), Math.round(p.y - drag.dy), !e.shiftKey);
+  if (drag.op !== undefined) {
+    const o = state.room.openings[drag.op];
+    o.offset = round1(clamp(along(o.wall, p) - drag.grab, 0, Math.max(0, wallLen(o.wall) - o.width)));
+  } else {
+    const it = find(drag.id);
+    place(it, Math.round(p.x - drag.dx), Math.round(p.y - drag.dy), !e.shiftKey);
+  }
   drag.moved = true;
   render();
 });
 
 function endDrag() {
   if (!drag) return;
+  const wasOp = drag.op !== undefined && drag.moved;
   if (!drag.moved) history.pop();
   drag = null;
   save();
   renderPanels();
+  if (wasOp) renderRoomPanel();
 }
 svg.addEventListener('pointerup', endDrag);
 svg.addEventListener('pointercancel', endDrag);
 
 $('catalog').addEventListener('click', e => {
+  const rm = e.target.closest('[data-rm]');
+  if (rm) { myPieces.splice(+rm.dataset.rm, 1); savePieces(); return; }
+  const mine = e.target.closest('[data-my]');
+  if (mine) { addItem(myPieces[+mine.dataset.my]); return; }
   const btn = e.target.closest('[data-cat]');
   if (btn) addItem(CATALOG[+btn.dataset.cat]);
 });
@@ -597,36 +1022,103 @@ $('selPanel').addEventListener('click', e => {
   if (act === 'rotate') rotate(it);
   if (act === 'dup') duplicate(it);
   if (act === 'del') remove(it);
+  if (act === 'save') {
+    myPieces = myPieces.filter(p => p.name !== it.name);
+    myPieces.push({ name: it.name, w: it.w, d: it.d, color: it.color, kind: it.kind, floor: it.floor });
+    savePieces();
+  }
+});
+
+$('roomPanel').addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'roomName') {
+    snapshot(); state.room.name = t.value.trim() || 'My room'; commit(); renderRoomPanel(); return;
+  }
+  if (t.id === 'roomW' || t.id === 'roomD') {
+    const v = parseLen(t.value);
+    if (!(v >= 24)) { $('roomErr').textContent = `Can't read "${t.value}" as at least 24″ (2 ft).`; return; }
+    snapshot();
+    state.room[t.id === 'roomW' ? 'w' : 'd'] = round1(v);
+    state.items.forEach(it => place(it, it.x, it.y, false));
+    commit(); renderRoomPanel(); return;
+  }
+  if (t.dataset.op === undefined) return;
+  const i = +t.dataset.op, k = t.dataset.k, o = state.room.openings[i];
+  if (!o) return;
+  snapshot();
+  if (k === 'wall' || k === 'hinge') o[k] = t.value;
+  else if (k === 'inside') o.inside = t.checked;
+  else if (k === 'doors') o.doors = clamp(Math.round(parseFloat(t.value) || 2), 1, 8);
+  else {
+    const v = parseLen(t.value);
+    if (!(v >= 0)) { history.pop(); renderRoomPanel(); return; }
+    o[k] = round1(k === 'width' ? Math.max(1, v) : v);
+  }
+  selectedOp = i;
+  commit(); renderRoomPanel({ op: i, k });
 });
 
 $('roomPanel').addEventListener('click', e => {
-  if (e.target.id === 'applyRoom') {
-    const w = parseFloat($('roomW').value), d = parseFloat($('roomD').value);
+  const t = e.target;
+  const add = t.closest('[data-add]')?.dataset.add;
+  if (add) {
+    snapshot();
+    state.room.openings.push(OP_NEW[add](state.room));
+    selectedOp = state.room.openings.length - 1;
+    commit(); renderRoomPanel();
+    return;
+  }
+  const del = t.closest('[data-del]')?.dataset.del;
+  if (del !== undefined) {
+    snapshot();
+    state.room.openings.splice(+del, 1);
+    selectedOp = null;
+    commit(); renderRoomPanel();
+    return;
+  }
+  if (t.id === 'applyJson') {
     let openings;
     try {
       openings = JSON.parse($('openings').value);
-      if (!Array.isArray(openings)) throw new Error('Expected a JSON array [ ... ]');
+      if (!Array.isArray(openings)) throw new Error('expected a JSON array [ … ]');
     } catch (err) { $('roomErr').textContent = 'Invalid JSON: ' + err.message; return; }
-    if (!(w >= 24 && d >= 24)) { $('roomErr').textContent = 'Room must be at least 24″ each way.'; return; }
     snapshot();
-    state.room = { w, d, openings };
-    state.items.forEach(it => place(it, it.x, it.y, false));
-    commit();
-    renderRoomPanel();
+    state.room.openings = openings;
+    selectedOp = null; jsonOpen = true;
+    commit(); renderRoomPanel();
+    return;
   }
-  if (e.target.id === 'defaultRoom') {
-    snapshot();
-    state.room = defaultRoom();
-    state.items.forEach(it => place(it, it.x, it.y, false));
-    commit();
-    renderRoomPanel();
-  }
+  if (t.id === 'panelImport') { openSetup(); return; }
+  if (t.id === 'copyJson') { copyLayout(t); return; }
+  // Clicking the body of a card selects that opening, without stealing focus from a field.
+  const card = t.closest('[data-opcard]');
+  if (card && !t.closest('input, select, textarea, label, button')) selectOp(+card.dataset.opcard);
 });
 
 document.addEventListener('keydown', e => {
   if (e.target.matches('input, textarea, select')) return;
   const mod = e.metaKey || e.ctrlKey;
   if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+
+  if (selectedOp !== null) {
+    const o = state.room.openings[selectedOp];
+    const step = e.shiftKey ? 12 : 1;
+    const slide = d => {
+      e.preventDefault(); snapshot();
+      o.offset = round1(clamp(o.offset + d, 0, Math.max(0, wallLen(o.wall) - o.width)));
+      commit(); renderRoomPanel();
+    };
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault(); snapshot();
+      state.room.openings.splice(selectedOp, 1);
+      selectedOp = null; commit(); renderRoomPanel();
+    }
+    else if (e.key === 'Escape') select(null);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') slide(-step);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') slide(step);
+    return;
+  }
+
   const it = find(selectedId);
   if (!it) return;
   const step = e.shiftKey ? 12 : 1;
@@ -652,33 +1144,48 @@ function download(blob, name) {
 
 $('undoBtn').onclick = undo;
 
-$('saveBtn').onclick = () =>
-  download(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }), 'room-layout.json');
-
 $('loadBtn').onclick = () => $('fileInput').click();
 $('fileInput').onchange = async e => {
   const file = e.target.files[0];
   e.target.value = '';
-  if (!file) return;
-  try {
-    const data = JSON.parse(await file.text());
-    if (!data.room || !Array.isArray(data.items)) throw new Error('missing room or items');
-    snapshot();
-    state = data;
-    selectedId = null;
-    commit();
-    renderRoomPanel();
-  } catch (err) { alert('Could not load that file: ' + err.message); }
+  if (file) openFile(file);
 };
 
+async function openFile(file) {
+  try {
+    const layout = parseLayout(await file.text());
+    applyLayout(layout);
+    flash(summarise(layout), layout.notes.join('\n'));
+  } catch (err) { alert('Could not read that file.\n\n' + err.message); }
+}
+
+// Drop a .json layout anywhere on the page.
+document.addEventListener('dragover', e => {
+  if (!e.dataTransfer?.types.includes('Files')) return;
+  e.preventDefault();
+  document.body.classList.add('dropping');
+});
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dropping'); });
+document.addEventListener('drop', e => {
+  if (!e.dataTransfer?.files.length) return;
+  e.preventDefault();
+  document.body.classList.remove('dropping');
+  openFile(e.dataTransfer.files[0]);
+});
+
 $('resetBtn').onclick = () => {
-  if (!confirm('Remove all furniture and restore the estimated room? (You can undo this.)')) return;
+  if (!state.items.length || !confirm('Take all the furniture back out? (⌘Z puts it back.)')) return;
   snapshot();
-  state = { room: defaultRoom(), items: [] };
+  state.items = [];
   selectedId = null;
   commit();
-  renderRoomPanel();
 };
+
+const fileStem = () =>
+  state.room.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'room';
+
+$('saveBtn').onclick = () =>
+  download(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }), fileStem() + '.json');
 
 $('pngBtn').onclick = () => {
   render({ forExport: true });
@@ -692,16 +1199,236 @@ $('pngBtn').onclick = () => {
     const c = document.createElement('canvas');
     c.width = vb.width * scale; c.height = vb.height * scale;
     c.getContext('2d').drawImage(img, 0, 0);
-    c.toBlob(b => download(b, 'room-layout.png'));
+    c.toBlob(b => download(b, fileStem() + '.png'));
   };
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
 };
+
+// ---------- Importing ----------
+// Rooms come in as JSON: from the Import box (pasted out of a chat window), from a saved
+// file, or from a file dropped on the page. Anything a language model is likely to wrap
+// around that JSON gets stripped, and anything missing gets a sensible default, so a
+// half-right answer still lands something you can drag around.
+const IMPORT_PROMPT = $('promptSrc').textContent.trim();
+
+function parseLayout(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('Nothing pasted yet.');
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  let body = fence ? fence[1] : raw;
+  if (!fence) {                                    // otherwise take the outermost { … }
+    const a = body.indexOf('{'), b = body.lastIndexOf('}');
+    if (a < 0 || b < a) throw new Error('No JSON in there. Look for the { … } block in the reply and paste that.');
+    body = body.slice(a, b + 1);
+  }
+  const tidy = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/,\s*([}\]])/g, '$1');
+  let data;
+  try { data = JSON.parse(body); }
+  catch { 
+    try { data = JSON.parse(tidy); }               // comments and trailing commas are common
+    catch (err) { throw new Error('That JSON does not parse: ' + err.message); }
+  }
+  return normalise(data);
+}
+
+// Accepts { room, items }, a bare room, or a bare array of furniture.
+function normalise(data) {
+  const notes = [];
+  const num = (v, fallback = NaN) => {
+    const n = typeof v === 'number' ? v : parseLen(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const rawRoom = data.room || (data.w !== undefined || data.width !== undefined ? data : null);
+  let room = null;
+  if (rawRoom) {
+    const w = num(rawRoom.w ?? rawRoom.width), d = num(rawRoom.d ?? rawRoom.depth ?? rawRoom.length);
+    if (!(w >= 24 && d >= 24)) throw new Error('The room needs a width and a depth of at least 24 inches.');
+    room = { version: ROOM_VERSION, name: String(rawRoom.name || 'Imported room').slice(0, 60),
+             w: round1(w), d: round1(d), openings: [] };
+    for (const o of (Array.isArray(rawRoom.openings) ? rawRoom.openings : [])) {
+      const t = String(o?.type || '').toLowerCase();
+      if (!OP_LABEL[t]) { notes.push(`Skipped a "${o?.type}" — not a window, door, radiator or closet.`); continue; }
+      const wall = String(o.wall || '').toUpperCase().slice(0, 1);
+      if (!WALLS[wall]) { notes.push(`Skipped a ${t} with no N/S/E/W wall.`); continue; }
+      const op = { type: t, wall, offset: Math.max(0, num(o.offset ?? o.from, 0)),
+                   width: Math.max(1, num(o.width ?? o.w, t === 'door' ? 32 : 36)) };
+      if (t === 'door') op.hinge = o.hinge === 'start' ? 'start' : 'end';
+      if (t === 'radiator') op.depth = Math.max(1, num(o.depth ?? o.d, 8));
+      if (t === 'closet') {
+        op.depth = Math.max(1, num(o.depth ?? o.d, 24));
+        op.clearance = Math.max(0, num(o.clearance, 20));
+        op.doors = clamp(Math.round(num(o.doors, 2)), 1, 8);
+        op.inside = !!o.inside;
+      }
+      room.openings.push(op);
+    }
+  }
+
+  const rawItems = Array.isArray(data.items) ? data.items
+    : Array.isArray(data.furniture) ? data.furniture
+    : Array.isArray(data) ? data : null;
+  let items = null;
+  if (rawItems) {
+    items = [];
+    for (const it of rawItems) {
+      const w = num(it?.w ?? it?.width), d = num(it?.d ?? it?.depth);
+      if (!(w > 0 && d > 0)) { notes.push(`Skipped "${it?.name || 'an unnamed piece'}" — no usable size.`); continue; }
+      const x = num(it.x), y = num(it.y);
+      items.push({
+        id: uid(), name: String(it.name || 'Piece').slice(0, 40), w: round1(w), d: round1(d),
+        rot: [0, 90, 180, 270].includes(+it.rot) ? +it.rot : 0,
+        color: /^#[0-9a-f]{6}$/i.test(it.color || '') ? it.color : '#b0b0b0',
+        kind: ['bed', 'round'].includes(it.kind) ? it.kind : '',
+        floor: !!it.floor,
+        x: Number.isFinite(x) ? x : null, y: Number.isFinite(y) ? y : null,
+      });
+    }
+  }
+  if (!room && !items?.length) throw new Error('No room and no furniture in that JSON.');
+  return { room, items, notes };
+}
+
+function applyLayout({ room, items }) {
+  snapshot();
+  if (room) state.room = room;
+  if (items) state.items = items;
+  // Rugs sit under everything else. Anything the import didn't place gets laid out in
+  // rows from the top-left, so nothing lands hidden underneath something else.
+  state.items = [...state.items.filter(i => i.floor), ...state.items.filter(i => !i.floor)];
+  let cx = 4, cy = 4, rowH = 0;
+  for (const it of state.items) {
+    if (it.x === null || it.y === null) {
+      const s = dims(it);
+      if (cx + s.w > state.room.w) { cx = 4; cy += rowH + 4; rowH = 0; }
+      it.x = cx; it.y = cy;
+      cx += s.w + 4;
+      rowH = Math.max(rowH, s.d);
+    }
+    place(it, it.x, it.y, false);
+  }
+  selectedId = null; selectedOp = null;
+  commit();
+  renderRoomPanel();
+}
+
+function summarise({ room, items, notes }) {
+  const bits = [];
+  if (room) bits.push(`${room.name} at ${fmt(room.w)} × ${fmt(room.d)}, ${room.openings.length} on the walls`);
+  if (items) bits.push(`${items.length} piece${items.length === 1 ? '' : 's'}`);
+  return `Imported ${bits.join(' · ')}${notes.length ? ` — ${notes.length} entr${notes.length === 1 ? 'y' : 'ies'} skipped, hover to see` : ''}`;
+}
+
+async function copyText(text, btn, label = 'Copied ✓') {
+  try { await navigator.clipboard.writeText(text); } catch { return false; }
+  const was = btn.textContent;
+  btn.textContent = label;
+  setTimeout(() => { btn.textContent = was; }, 1600);
+  return true;
+}
+function copyLayout(btn) {
+  copyText(JSON.stringify(state, null, 2), btn).then(ok => {
+    if (!ok) flash('Clipboard is blocked here — use Save layout instead.');
+  });
+}
+
+// ---------- The import dialog ----------
+const PRESETS = [[8, 10], [10, 10], [10, 12], [11, 11], [12, 12], [12, 14], [13, 16]];
+$('suPresets').innerHTML = PRESETS.map(([a, b]) => `<button data-preset="${a},${b}">${a}′ × ${b}′</button>`).join('');
+
+function sizeFromDialog() {
+  const w = parseLen($('suW').value), d = parseLen($('suD').value);
+  const echo = $('suEcho');
+  if (!(w >= 24) || !(d >= 24)) {
+    echo.className = 'echo bad';
+    echo.textContent = 'Give a width and a depth of at least 2 feet.';
+    return null;
+  }
+  echo.className = 'echo';
+  echo.textContent = `${fmt(w)} × ${fmt(d)} — that's ${round1(w)} × ${round1(d)} inches, ${Math.round(w * d / 144)} sq ft.`;
+  return { w: round1(w), d: round1(d) };
+}
+
+function openSetup() {
+  $('suPaste').value = '';
+  $('suPasteEcho').textContent = '';
+  $('suPasteEcho').className = 'echo';
+  $('suName').value = state.room.name;
+  $('suW').value = fmtInput(state.room.w);
+  $('suD').value = fmtInput(state.room.d);
+  sizeFromDialog();
+  $('suKeep').textContent = state.items.length
+    ? `Your ${state.items.length} piece${state.items.length === 1 ? '' : 's'} of furniture stay put unless the pasted JSON brings its own.`
+    : '';
+  $('setup').showModal();
+}
+
+$('importBtn').onclick = () => openSetup();
+$('suCancel').onclick = () => $('setup').close();
+$('suW').oninput = $('suD').oninput = sizeFromDialog;
+$('suPresets').onclick = e => {
+  const p = e.target.closest('[data-preset]');
+  if (!p) return;
+  const [a, b] = p.dataset.preset.split(',');
+  $('suW').value = `${a}'`; $('suD').value = `${b}'`;
+  sizeFromDialog();
+};
+
+$('suImport').onclick = () => {
+  let layout;
+  try { layout = parseLayout($('suPaste').value); }
+  catch (err) {
+    $('suPasteEcho').className = 'echo bad';
+    $('suPasteEcho').textContent = err.message;
+    return;
+  }
+  applyLayout(layout);
+  $('setup').close();
+  flash(summarise(layout), layout.notes.join('\n'));
+};
+
+$('suCreate').onclick = () => {
+  const size = sizeFromDialog();
+  if (!size) return;
+  snapshot();
+  state.room = blankRoom(size.w, size.d, $('suName').value.trim() || 'My room');
+  state.items.forEach(it => place(it, it.x, it.y, false));
+  selectedOp = null;
+  commit();
+  renderRoomPanel();
+  $('setup').close();
+  flash('Empty room ready — add your windows and doors on the right.');
+};
+
+$('suSample').onclick = () => {
+  snapshot();
+  state.room = defaultRoom();
+  state.items.forEach(it => place(it, it.x, it.y, false));
+  selectedOp = null;
+  commit();
+  renderRoomPanel();
+  $('setup').close();
+};
+
+$('suCopy').onclick = async e => {
+  if (!await copyText(IMPORT_PROMPT, e.target, 'Copied — now paste it into your AI ✓')) showPrompt();
+};
+$('suShow').onclick = () => showPrompt();
+$('pdClose').onclick = () => $('promptDlg').close();
+$('pdCopy').onclick = async e => {
+  if (!await copyText(IMPORT_PROMPT, e.target)) { $('promptText').select(); }
+};
+function showPrompt() {
+  $('promptText').value = IMPORT_PROMPT;
+  $('promptDlg').showModal();
+  $('promptText').scrollTop = 0;
+}
 
 // ---------- Boot ----------
 renderCatalog();
 renderRoomPanel();
 render();
 renderPanels();
+save();
 </script>
 </body>
 </html>
