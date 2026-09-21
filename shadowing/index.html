@@ -489,6 +489,88 @@ let CUSTOM = [];
 function allArticles(){ return DATA.concat(CUSTOM); }
 function srcFor(i){ return i < DATA.length ? AUDIO_SRC[i] : CUSTOM[i-DATA.length].url; }
 
+// ---------- 简 / 繁 conversion (OpenCC tables, fetched only when you add your own text) ----------
+let openccReady = null;
+function loadOpenCC(){
+  if(openccReady) return openccReady;
+  openccReady = new Promise((res,rej)=>{
+    if(window.OPENCC) return res(window.OPENCC);
+    const el = document.createElement('script');
+    el.src = 'opencc.js';
+    el.onload  = ()=> window.OPENCC ? res(window.OPENCC) : rej(new Error('轉換表載入失敗'));
+    el.onerror = ()=> rej(new Error('轉換表載入失敗'));
+    document.head.appendChild(el);
+  });
+  return openccReady;
+}
+// each dict line is "source target[ alternative...]"; we take the first target
+function buildTrie(dict){
+  const root = new Map();
+  for(const line of dict.split('|')){
+    const sp = line.indexOf(' ');
+    if(sp < 1) continue;
+    const from = line.slice(0, sp);
+    let to = line.slice(sp+1);
+    const alt = to.indexOf(' ');
+    if(alt >= 0) to = to.slice(0, alt);
+    let m = root;
+    for(const ch of from){
+      const cp = ch.codePointAt(0);
+      let nx = m.get(cp);
+      if(!nx){ nx = new Map(); m.set(cp, nx); }
+      m = nx;
+    }
+    m.val = to;
+  }
+  return root;
+}
+function convertWith(trie, text){
+  const cs = [...text];
+  let out = '', i = 0;
+  while(i < cs.length){
+    let m = trie, best = null, bestLen = 0, j = i;
+    while(j < cs.length){
+      m = m.get(cs[j].codePointAt(0));
+      if(!m) break;
+      j++;
+      if(m.val !== undefined){ best = m.val; bestLen = j - i; }   // longest match wins
+    }
+    if(best !== null){ out += best; i += bestLen; }
+    else { out += cs[i]; i++; }
+  }
+  return out;
+}
+const _tries = {}, _keys = {};
+function triesFor(dir){
+  if(!_tries[dir]) _tries[dir] = window.OPENCC[dir].map(buildTrie);
+  return _tries[dir];
+}
+function convert(text, dir){
+  return triesFor(dir).reduce((t, trie)=>convertWith(trie, t), text);
+}
+// single-character keys of a group are exactly its character dictionary
+function charKeys(dir, idx){
+  const k = dir+idx;
+  if(!_keys[k]){
+    const set = new Set();
+    for(const line of window.OPENCC[dir][idx].split('|'))
+      if(line.indexOf(' ') === 1) set.add(line[0]);
+    _keys[k] = set;
+  }
+  return _keys[k];
+}
+// characters unique to one script's key set decide which way to convert
+function detectScript(text){
+  const sK = charKeys('s2t',0), tK = charKeys('t2s',1);
+  let simp = 0, trad = 0;
+  for(const ch of text){
+    const inS = sK.has(ch), inT = tK.has(ch);
+    if(inS && !inT) simp++;
+    else if(inT && !inS) trad++;
+  }
+  return trad > simp ? 'trad' : 'simp';
+}
+
 // ---------- segmentation ----------
 const SEG = (typeof Intl!=='undefined' && Intl.Segmenter) ? new Intl.Segmenter('zh',{granularity:'word'}) : null;
 const ENDS = /[。！？!?；;…]/, CLOSERS = /[」』”’"')）\]】]/;
@@ -586,6 +668,10 @@ async function buildArticle(title, text, key, voice, onProgress){
   const flat = [head, ...paraSents.flat()];                   // the title is spoken too, like the demo articles
   if(flat.length > 120) throw new Error('文章太長（'+flat.length+' 句），請分段貼上');
 
+  let srcScript = 'simp', canConvert = false;
+  try{ await loadOpenCC(); srcScript = detectScript(text); canConvert = true; }
+  catch(e){ canConvert = false; }        // no table -> fall back to identical pairs
+
   onProgress(0, flat.length, '生成語音…');
   const blobs = await mapLimit(flat, MAX_PARALLEL,
     s => ttsSentence(s, key, voice),
@@ -615,7 +701,10 @@ async function buildArticle(title, text, key, voice, onProgress){
     const out = []; let cur = s;
     toks.forEach((tok,i)=>{
       const nxt = (i === toks.length-1) ? e : cur + (e-s)*(ws[i]/total);
-      out.push([tok, tok, +cur.toFixed(3), +nxt.toFixed(3), sentIdx]);   // no S/T pair for custom text
+      // convert per token so the two scripts stay index-aligned even when a phrase changes length
+      const other = canConvert ? convert(tok, srcScript==='simp' ? 's2t' : 't2s') : tok;
+      const pair = srcScript==='simp' ? [tok, other] : [other, tok];
+      out.push([pair[0], pair[1], +cur.toFixed(3), +nxt.toFixed(3), sentIdx]);
       cur = nxt;
     });
     return out;
