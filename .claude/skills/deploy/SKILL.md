@@ -9,55 +9,52 @@ description: Deploy tools.evanyoung.dev. Use when asked to deploy, ship, publish
 directory as static assets. There is no build step and no Pages project. `wrangler
 pages deploy` is wrong here and will create a second, unrelated project.
 
-Config lives in `wrangler.jsonc` at the repo root: `assets.directory` is `"."`, and
-the custom domain is claimed by the `routes` entry. `.assetsignore` lists what must
-not be served (git internals, agent scratch dirs, the wrangler config itself).
+## Deploy = push to main
 
-## Deploy
-
-From the repo root — a git worktree is fine, wrangler only cares about the directory:
+The Worker is connected to `EvanDavidYoung/tools` through **Cloudflare Workers
+Builds**. Every push to `main` runs `npx wrangler deploy` in Cloudflare's build
+environment. Other branches don't deploy. So:
 
 ```bash
-npx --yes wrangler deploy
+git push origin HEAD:main   # or merge a PR into main
 ```
 
-Auth is already set up: an OAuth token for evan.david.young@gmail.com, stored at
-`~/Library/Preferences/.wrangler/config/default.toml` (the macOS path — *not*
-`~/.config/.wrangler`, which is where you'd look on Linux and find nothing). If a
-command reports being logged out, the refresh token has expired and only the user can
-fix it, interactively: `npx wrangler login`.
+What's live is what's on `main`. Don't run `wrangler deploy` from a local checkout:
+it ships your working tree (uncommitted and untracked files included), and the next
+push to `main` silently overwrites it. There are several checkouts of this repo on
+this machine (`~/Desktop/projects/tools`, `~/Desktop/projects/tools-v1`, Conductor
+worktrees) and they drift — that's exactly what this setup exists to prevent.
 
-Wrangler isn't installed in this repo and shouldn't be — the site has no
-`package.json` and no `node_modules`, which is the point. `npx` pulls it from the npm
-cache.
+Config lives in `wrangler.jsonc`: `assets.directory` is `"."`, and the custom domain
+is claimed by the `routes` entry. `.assetsignore` lists what must not be served.
+`_redirects` sends `/` to evanyoung.dev/tools.
 
-## Check what's live before you deploy
+## The index lives in the portfolio repo
 
-The deploy ships **the working tree**, not a commit — uncommitted edits and untracked
-files go live, and anything missing locally disappears from the site. There is more
-than one checkout of this repo on this machine (`~/Desktop/projects/tools`,
-`~/Desktop/projects/tools-v1`, plus Conductor worktrees), and they drift. Before
-deploying, confirm the directory you're in is the one you mean to publish:
+There is no index page here. The catalogue is evanyoung.dev/tools, built from
+`src/data/tools.ts` in `EvanDavidYoung/portfolio` (also a Worker, `portfolio`, also
+deployed by Workers Builds on push to `main`). **Adding or renaming a tool means
+editing that file too**, or the tool exists but nothing links to it.
+
+## Check a build
+
+Build status and logs: Cloudflare dashboard → Workers → `tools` → Deployments, or via
+the API: `GET /accounts/{account_id}/builds/workers/f2afdf4529a04dac97ccb7a3e6091da8/builds`.
+
+## Verify after deploying
+
+Check a file the deploy was supposed to add, not just the root — which is a redirect:
 
 ```bash
-git status --short && git log --oneline -1
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://tools.evanyoung.dev/
+curl -s -o /dev/null -w "%{http_code}\n" https://tools.evanyoung.dev/room-planner/import-prompt.md
 ```
 
-To see whether what's live matches a given commit, compare a file that changed:
+To see whether what's live matches a commit, compare a file that changed:
 
 ```bash
 curl -s https://tools.evanyoung.dev/shadowing/ | shasum | cut -c1-12
 git show <rev>:shadowing/index.html | shasum | cut -c1-12
-```
-
-## Verify after deploying
-
-Check a file the deploy was supposed to add, not just the homepage — a stale asset
-list will still serve `/` happily:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://tools.evanyoung.dev/
-curl -s -o /dev/null -w "%{http_code}\n" https://tools.evanyoung.dev/room-planner/import-prompt.md
 ```
 
 Cloudflare caches aggressively; `cf-cache-status: HIT` on a stale response means
@@ -66,5 +63,9 @@ retry with a cache-buster (`?v=$(date +%s)`) before concluding the deploy failed
 ## Account facts
 
 - Account: `Evan.david.young@gmail.com's Account` — `478f3cf7dffa3b0210f5af54c95ed5f7`
-- Worker name: `tools`. Other Pages projects on this account (`crop`, `zhuyin-game`,
-  `dashboard-demo`, `ugrip`) are unrelated; don't deploy this repo into one.
+- Worker name: `tools` (script tag `f2afdf4529a04dac97ccb7a3e6091da8`). Other Pages
+  projects on this account (`crop`, `zhuyin-game`, `dashboard-demo`, `ugrip`) are
+  unrelated; don't deploy this repo into one.
+- Local wrangler auth, if you ever need it for inspection: OAuth token at
+  `~/Library/Preferences/.wrangler/config/default.toml` (macOS path). If logged out,
+  only the user can fix it: `npx wrangler login`.
