@@ -81,6 +81,10 @@
             font-size: 16px;
         }
 
+        #sampleBtn {
+            margin-left: auto;
+        }
+
         .player-container {
             background: #252542;
             border-radius: 12px;
@@ -369,6 +373,7 @@
             <span class="icon">📄</span>
             <span id="jsonStatus">No transcript loaded</span>
         </div>
+        <button type="button" id="sampleBtn" title="A minute of the 大叔中文 (Dashu Mandarin) podcast: three hosts, diarized with WhisperX + pyannote">Load sample</button>
     </div>
 
     <div class="player-container" id="playerContainer">
@@ -507,12 +512,15 @@
         }
 
         function loadAudio(file) {
-            const url = URL.createObjectURL(file);
+            setAudio(URL.createObjectURL(file), file.name);
+        }
+
+        function setAudio(url, name) {
             audioPlayer.src = url;
             audioLoaded = true;
             audioBadge.classList.remove('pending');
             audioBadge.classList.add('loaded');
-            audioStatus.textContent = file.name;
+            audioStatus.textContent = name;
             checkReady();
         }
 
@@ -520,18 +528,44 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    transcriptData = JSON.parse(e.target.result);
-                    jsonBadge.classList.remove('pending');
-                    jsonBadge.classList.add('loaded');
-                    jsonStatus.textContent = file.name;
-                    renderTranscript();
-                    checkReady();
+                    setTranscript(JSON.parse(e.target.result), file.name);
                 } catch (err) {
                     alert('Error parsing JSON file: ' + err.message);
                 }
             };
             reader.readAsText(file);
         }
+
+        function setTranscript(data, name) {
+            transcriptData = data;
+            hiddenSpeakers.clear();
+            jsonBadge.classList.remove('pending');
+            jsonBadge.classList.add('loaded');
+            jsonStatus.textContent = name;
+            renderTranscript();
+            checkReady();
+        }
+
+        // Load the bundled sample: a minute of the 大叔中文 (Dashu Mandarin)
+        // podcast, three hosts talking over each other, run through WhisperX +
+        // pyannote. Shows the speaker legend, per-speaker filtering, and the
+        // CJK/English spacing ("routine") in one go.
+        document.getElementById('sampleBtn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.textContent = 'Loading\u2026';
+            try {
+                const res = await fetch('sample.json');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                setTranscript(await res.json(), 'sample.json');
+                setAudio('sample.mp3', '大叔中文 clip');
+                btn.textContent = 'Sample loaded';
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = 'Load sample';
+                alert('Could not load the sample: ' + err.message);
+            }
+        });
 
         function checkReady() {
             if (audioLoaded && transcriptData) {
