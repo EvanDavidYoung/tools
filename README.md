@@ -21,6 +21,9 @@ working in a year. These keep working.
 - **No network calls.** These read files the user picks via `<input type="file">`
   and never upload anything. If a tool needs a video or dataset to be useful,
   bundle a small sample and add a "Load sample" button.
+  The exception is `stem-splitter`, a front end for a GPU job: it uploads the song to
+  its own Modal endpoint ([source](https://github.com/EvanDavidYoung/stem-splitter)),
+  which rejects any request without the API key.
 - **Hand the hard input to an AI.** When a tool needs structured input that's a pain
   to type — a room's dimensions, a schema, a dataset — ship a prompt file next to it.
   The user pastes that prompt into whatever chat window they already have open, feeds it

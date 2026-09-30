@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stem Splitter</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+
+        h1 { text-align: center; color: #fff; margin: 10px 0 6px; }
+        .subtitle { text-align: center; color: #888; font-size: 14px; margin: 0 0 28px; }
+        .subtitle a { color: #9d97ff; }
+
+        .card {
+            background: #252542;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card h2 { margin: 0 0 14px; font-size: 16px; color: #ccc; font-weight: 600; }
+
+        .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+        input[type=password], input[type=text], select {
+            background: #1a1a2e;
+            color: #eee;
+            border: 1px solid #4a4a6a;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+        input[type=password], input[type=text] { flex: 1; min-width: 200px; font-family: ui-monospace, monospace; }
+
+        button {
+            background: #6c63ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        button:hover { background: #5a52d5; }
+        button:disabled { background: #4a4a6a; cursor: not-allowed; }
+        button.secondary { background: #3a3a5a; }
+        button.secondary:hover { background: #4a4a6a; }
+
+        .hint { color: #888; font-size: 13px; margin: 10px 0 0; }
+        .ok { color: #7dce94; }
+        .bad { color: #ff7b7b; }
+
+        .drop-zone {
+            border: 3px dashed #4a4a6a;
+            border-radius: 12px;
+            padding: 36px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: #6c63ff; background: #2d2d4a; }
+        .drop-zone h3 { margin: 0 0 8px; color: #aaa; }
+        .drop-zone p { margin: 0; color: #666; font-size: 14px; }
+        .drop-zone.has-file h3 { color: #7dce94; }
+
+        .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 16px 0; }
+        .mode {
+            display: block;
+            border: 2px solid #3a3a5a;
+            border-radius: 10px;
+            padding: 12px 14px;
+            cursor: pointer;
+        }
+        .mode:has(input:checked) { border-color: #6c63ff; background: #2d2d4a; }
+        .mode input { margin: 0 6px 0 0; }
+        .mode strong { color: #fff; }
+        .mode span { display: block; color: #999; font-size: 13px; margin-top: 6px; line-height: 1.4; }
+
+        .progress { height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; margin-top: 14px; display: none; }
+        .progress.visible { display: block; }
+        .progress div { height: 100%; width: 0; background: #6c63ff; transition: width 0.2s; }
+        .progress.indeterminate div { width: 30%; animation: slide 1.4s ease-in-out infinite; }
+        @keyframes slide { from { margin-left: -30%; } to { margin-left: 100%; } }
+        #status { margin: 10px 0 0; font-size: 14px; color: #bbb; min-height: 1.2em; }
+
+        #results { display: none; }
+        #results.visible { display: block; }
+
+        .transport { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+        .transport input[type=range] { flex: 1; accent-color: #6c63ff; }
+        .time { font-variant-numeric: tabular-nums; color: #aaa; font-size: 13px; min-width: 90px; text-align: right; }
+        #playBtn { width: 84px; }
+
+        .stem {
+            display: grid;
+            grid-template-columns: 124px auto 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 10px 0;
+            border-top: 1px solid #33334f;
+        }
+        .stem-name { font-weight: 600; display: flex; align-items: center; gap: 8px; text-transform: capitalize; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+        .toggles { display: flex; gap: 6px; }
+        .toggles button { padding: 6px 10px; font-size: 12px; background: #3a3a5a; min-width: 34px; }
+        .toggles button.on-mute { background: #8a4a4a; }
+        .toggles button.on-solo { background: #b08a2a; color: #111; }
+        .stem input[type=range] { width: 100%; accent-color: #6c63ff; }
+        .stem a { color: #9d97ff; font-size: 13px; text-decoration: none; white-space: nowrap; }
+        .stem a:hover { text-decoration: underline; }
+
+        @media (max-width: 560px) {
+            .stem { grid-template-columns: 1fr auto; }
+            .stem input[type=range] { grid-column: 1 / -1; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Stem Splitter</h1>
+    <p class="subtitle">
+        Split a song into vocals, drums, bass, guitar, piano and other with BS-RoFormer models on a Modal GPU.
+        <a href="https://github.com/EvanDavidYoung/stem-splitter">Source</a>
+    </p>
+
+    <div class="card">
+        <h2>API key</h2>
+        <div class="row">
+            <input type="password" id="apiKey" placeholder="Paste your stem splitter API key" autocomplete="off" spellcheck="false">
+            <button class="secondary" id="saveKey">Save</button>
+        </div>
+        <p class="hint" id="keyStatus">This runs on a paid GPU, so it needs a key. Your key stays in this browser.</p>
+    </div>
+
+    <div class="card">
+        <h2>Song</h2>
+        <div class="drop-zone" id="dropZone">
+            <h3 id="dropTitle">Drop an audio file here</h3>
+            <p id="dropHint">or click to choose — mp3, wav, flac, m4a, up to 200 MB</p>
+            <input type="file" id="fileInput" accept="audio/*,.flac,.m4a" hidden>
+        </div>
+
+        <div class="modes">
+            <label class="mode">
+                <input type="radio" name="mode" value="6stem" checked><strong>6 stems</strong>
+                <span>BS-Roformer-SW. Vocals, drums, bass, guitar, piano, other. Fastest.</span>
+            </label>
+            <label class="mode">
+                <input type="radio" name="mode" value="2stem"><strong>Vocals / instrumental</strong>
+                <span>Two-model RoFormer ensemble. The cleanest karaoke split.</span>
+            </label>
+            <label class="mode">
+                <input type="radio" name="mode" value="hq"><strong>High quality</strong>
+                <span>Ensemble vocals, then 6-stem on the instrumental. Least bleed, slowest.</span>
+            </label>
+        </div>
+
+        <div class="row">
+            <label for="format" style="color:#aaa;font-size:14px">Format</label>
+            <select id="format">
+                <option value="mp3">MP3 320k</option>
+                <option value="flac">FLAC (lossless)</option>
+                <option value="wav">WAV</option>
+            </select>
+            <button id="splitBtn" style="margin-left:auto" disabled>Split</button>
+        </div>
+        <div class="progress" id="progress"><div></div></div>
+        <p id="status"></p>
+    </div>
+
+    <div class="card" id="results">
+        <h2 id="resultsTitle">Stems</h2>
+        <div class="transport">
+            <button id="playBtn">Play</button>
+            <input type="range" id="seek" min="0" max="0" step="0.01" value="0">
+            <span class="time" id="time">0:00 / 0:00</span>
+        </div>
+        <div id="stems"></div>
+        <div class="row" style="margin-top:14px">
+            <button class="secondary" id="downloadAll">Download all</button>
+        </div>
+    </div>
+
+<script>
+const API = 'https://evandavidyoung--stem-splitter-api.modal.run';
+const KEY_STORE = 'stemsplitter_api_key';
+const JOB_STORE = 'stemsplitter_last_job';
+const POLL_MS = 4000;
+const STEM_ORDER = ['vocals', 'instrumental', 'drums', 'bass', 'guitar', 'piano', 'other'];
+const STEM_COLORS = {
+    vocals: '#ff6b9d', instrumental: '#9d97ff', drums: '#ffb347', bass: '#4fc3f7',
+    guitar: '#7dce94', piano: '#e0e0e0', other: '#b39ddb'
+};
+
+const $ = id => document.getElementById(id);
+let file = null;
+let tracks = [];          // {name, file, url, audio, muted, solo, volume, els}
+let playing = false;
+
+// ---------- storage (localStorage can throw in private mode) ----------
+const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+// ---------- API ----------
+function key() { return $('apiKey').value.trim(); }
+function authHeaders() { return { Authorization: 'Bearer ' + key() }; }
+
+async function apiFetch(path, opts = {}) {
+    const res = await fetch(API + path, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
+    if (res.status === 401) throw new Error('The API key was rejected.');
+    if (!res.ok) {
+        let detail = res.statusText;
+        try { detail = (await res.json()).detail || detail; } catch (e) {}
+        throw new Error(`${res.status}: ${detail}`);
+    }
+    return res;
+}
+
+// XHR rather than fetch so the upload can report progress.
+function upload(form, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', API + '/jobs');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + key());
+        xhr.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+        xhr.onload = () => {
+            let body = {};
+            try { body = JSON.parse(xhr.responseText); } catch (e) {}
+            if (xhr.status === 401) reject(new Error('The API key was rejected.'));
+            else if (xhr.status >= 400) reject(new Error(`${xhr.status}: ${body.detail || xhr.statusText}`));
+            else resolve(body);
+        };
+        xhr.onerror = () => reject(new Error('Upload failed — network error.'));
+        xhr.send(form);
+    });
+}
+
+// ---------- key ----------
+async function checkKey() {
+    const status = $('keyStatus');
+    if (!key()) { status.textContent = 'Enter a key to start.'; status.className = 'hint'; return false; }
+    status.textContent = 'Checking…'; status.className = 'hint';
+    try {
+        await apiFetch('/auth');
+        status.textContent = 'Key accepted.'; status.className = 'hint ok';
+        return true;
+    } catch (e) {
+        status.textContent = e.message; status.className = 'hint bad';
+        return false;
+    }
+}
+
+$('saveKey').onclick = async () => {
+    if (await checkKey()) store.set(KEY_STORE, key());
+    updateSplitBtn();
+};
+$('apiKey').addEventListener('keydown', e => e.key === 'Enter' && $('saveKey').click());
+$('apiKey').addEventListener('input', updateSplitBtn);
+
+// ---------- file picking ----------
+const dz = $('dropZone');
+dz.onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => e.target.files[0] && pickFile(e.target.files[0]);
+dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag-over'); };
+dz.ondragleave = () => dz.classList.remove('drag-over');
+dz.ondrop = e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) pickFile(e.dataTransfer.files[0]);
+};
+
+function pickFile(f) {
+    file = f;
+    dz.classList.add('has-file');
+    $('dropTitle').textContent = f.name;
+    $('dropHint').textContent = `${(f.size / 1e6).toFixed(1)} MB — click to choose a different file`;
+    updateSplitBtn();
+}
+
+function updateSplitBtn() { $('splitBtn').disabled = !(file && key()); }
+
+// ---------- job lifecycle ----------
+function setStatus(text, cls = '') { $('status').textContent = text; $('status').className = cls; }
+function setProgress(fraction) {
+    const p = $('progress');
+    p.classList.add('visible');
+    p.classList.toggle('indeterminate', fraction == null);
+    p.firstElementChild.style.width = fraction == null ? '' : (fraction * 100).toFixed(1) + '%';
+}
+function hideProgress() { $('progress').classList.remove('visible', 'indeterminate'); }
+
+$('splitBtn').onclick = async () => {
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    const format = $('format').value;
+    const form = new FormData();
+    form.append('file', file);
+    form.append('mode', mode);
+    form.append('format', format);
+
+    $('splitBtn').disabled = true;
+    resetResults();
+    try {
+        setStatus('Uploading…');
+        const { id } = await upload(form, f => { setProgress(f); setStatus(`Uploading… ${Math.round(f * 100)}%`); });
+        store.set(JOB_STORE, JSON.stringify({ id, name: file.name, started: Date.now() }));
+        await pollJob(id, file.name, Date.now());
+    } catch (e) {
+        hideProgress();
+        setStatus(e.message, 'bad');
+    } finally {
+        updateSplitBtn();
+    }
+};
+
+async function pollJob(id, name, started) {
+    setProgress(null);
+    for (;;) {
+        const secs = Math.round((Date.now() - started) / 1000);
+        setStatus(`Separating on the GPU… ${fmtTime(secs)} elapsed. A cold start adds a minute or two; a 4-minute song takes about a minute after that.`);
+        const job = await (await apiFetch(`/jobs/${id}`)).json();
+        if (job.status === 'done') return loadStems(id, name, job.stems);
+        if (job.status === 'error') { store.del(JOB_STORE); throw new Error('Separation failed: ' + job.error); }
+        await new Promise(r => setTimeout(r, POLL_MS));
+    }
+}
+
+async function loadStems(id, name, files) {
+    files.sort((a, b) => STEM_ORDER.indexOf(a.split('.')[0]) - STEM_ORDER.indexOf(b.split('.')[0]));
+    let done = 0;
+    setStatus(`Downloading stems… 0 / ${files.length}`);
+    setProgress(0);
+    // The stems need the auth header, so <audio src> can't point at the API directly: fetch to blobs.
+    const blobs = await Promise.all(files.map(async f => {
+        const blob = await (await apiFetch(`/jobs/${id}/stems/${f}`)).blob();
+        done++;
+        setProgress(done / files.length);
+        setStatus(`Downloading stems… ${done} / ${files.length}`);
+        return blob;
+    }));
+    hideProgress();
+    setStatus('Done. Results stay on the server for a day.', 'ok');
+    showResults(name, files, blobs);
+}
+
+// ---------- mixer ----------
+function resetResults() {
+    pause();
+    tracks.forEach(t => URL.revokeObjectURL(t.url));
+    tracks = [];
+    $('stems').innerHTML = '';
+    $('results').classList.remove('visible');
+}
+
+function showResults(name, files, blobs) {
+    resetResults();
+    const base = name.replace(/\.[^.]+$/, '');
+    $('resultsTitle').textContent = `Stems — ${name}`;
+    files.forEach((f, i) => {
+        const stem = f.split('.')[0];
+        const url = URL.createObjectURL(blobs[i]);
+        const audio = new Audio(url);
+        audio.preload = 'auto';
+        const t = { name: stem, file: f, url, audio, muted: false, solo: false, volume: 1, download: `${base} - ${f}` };
+        tracks.push(t);
+
+        const row = document.createElement('div');
+        row.className = 'stem';
+        row.innerHTML = `
+            <div class="stem-name"><span class="dot" style="background:${STEM_COLORS[stem] || '#888'}"></span>${stem}</div>
+            <div class="toggles"><button title="Mute">M</button><button title="Solo">S</button></div>
+            <input type="range" min="0" max="1" step="0.01" value="1" aria-label="${stem} volume">
+            <a href="${url}" download="${t.download}">Download</a>`;
+        const [muteBtn, soloBtn] = row.querySelectorAll('button');
+        muteBtn.onclick = () => { t.muted = !t.muted; muteBtn.classList.toggle('on-mute', t.muted); applyGains(); };
+        soloBtn.onclick = () => { t.solo = !t.solo; soloBtn.classList.toggle('on-solo', t.solo); applyGains(); };
+        row.querySelector('input').oninput = e => { t.volume = +e.target.value; applyGains(); };
+        $('stems').appendChild(row);
+    });
+
+    const master = tracks[0].audio;
+    master.onloadedmetadata = () => { $('seek').max = master.duration; updateTime(); };
+    master.ontimeupdate = () => { if (!seeking) $('seek').value = master.currentTime; updateTime(); resync(); };
+    master.onended = () => { pause(); tracks.forEach(t => t.audio.currentTime = 0); updateTime(); };
+    applyGains();
+    $('results').classList.add('visible');
+}
+
+function applyGains() {
+    const anySolo = tracks.some(t => t.solo);
+    tracks.forEach(t => {
+        const audible = anySolo ? t.solo : !t.muted;
+        t.audio.muted = !audible;       // iOS ignores .volume, so mute has to be its own switch
+        t.audio.volume = t.volume;
+    });
+}
+
+// Separate <audio> elements drift apart over a few minutes; pull stragglers back to the first track.
+function resync() {
+    if (!playing) return;
+    const now = tracks[0].audio.currentTime;
+    tracks.slice(1).forEach(t => { if (Math.abs(t.audio.currentTime - now) > 0.06) t.audio.currentTime = now; });
+}
+
+function play() {
+    if (!tracks.length) return;
+    const now = tracks[0].audio.currentTime;
+    tracks.forEach(t => { t.audio.currentTime = now; t.audio.play(); });
+    playing = true;
+    $('playBtn').textContent = 'Pause';
+}
+
+function pause() {
+    tracks.forEach(t => t.audio.pause());
+    playing = false;
+    $('playBtn').textContent = 'Play';
+}
+
+$('playBtn').onclick = () => playing ? pause() : play();
+
+let seeking = false;
+$('seek').oninput = () => { seeking = true; updateTime(+$('seek').value); };
+$('seek').onchange = () => {
+    tracks.forEach(t => t.audio.currentTime = +$('seek').value);
+    seeking = false;
+};
+
+function fmtTime(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function updateTime(at) {
+    const a = tracks[0] && tracks[0].audio;
+    if (!a) return;
+    $('time').textContent = `${fmtTime(at ?? a.currentTime)} / ${fmtTime(a.duration)}`;
+}
+
+$('downloadAll').onclick = async () => {
+    for (const t of tracks) {
+        const a = document.createElement('a');
+        a.href = t.url;
+        a.download = t.download;
+        a.click();
+        await new Promise(r => setTimeout(r, 400));   // browsers drop rapid-fire download clicks
+    }
+};
+
+// ---------- startup: restore key, resume the last job if the tab was closed mid-run ----------
+(async () => {
+    const saved = store.get(KEY_STORE);
+    if (!saved) return;
+    $('apiKey').value = saved;
+    updateSplitBtn();
+    let last = null;
+    try { last = JSON.parse(store.get(JOB_STORE)); } catch (e) {}
+    if (!last || Date.now() - last.started > 20 * 3600 * 1000) return;
+    try {
+        setStatus(`Resuming ${last.name}…`);
+        await pollJob(last.id, last.name, last.started);
+    } catch (e) {
+        hideProgress();
+        setStatus(`Couldn't resume ${last.name}: ${e.message}`, 'bad');
+    }
+})();
+</script>
+</body>
+</html>
