@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICS to Google Calendar</title>
+<style>
+  :root { --bg:#f4f1ea; --panel:#fff; --ink:#2b2b2b; --muted:#80796c; --accent:#2f6fde; --line:#e4ded2; --bad:#d33b2f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  #drop { display: grid; place-items: center; text-align: center; gap: 6px; min-height: 180px; padding: 24px;
+          background: var(--panel); border: 2px dashed #cfc6b5; border-radius: 12px; cursor: pointer; transition: border-color .12s, background .12s; }
+  #drop:hover, #drop:focus-visible { border-color: var(--accent); outline: none; }
+  #drop.over { border-color: var(--accent); background: #eef3fd; }
+  #drop b { font-size: 15px; }
+  #drop .muted { font-size: 12px; }
+  details { margin: 12px 0 0; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  textarea { display: block; width: 100%; height: 140px; margin-top: 8px; padding: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace;
+             border: 1px solid var(--line); border-radius: 8px; background: #fff; resize: vertical; }
+  button, a.btn { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 6px 11px;
+                  color: var(--ink); text-decoration: none; display: inline-block; }
+  button:hover, a.btn:hover { border-color: #c9c1b1; background: #faf8f4; }
+  .primary, a.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .primary:hover, a.primary:hover { background: #2760c4; border-color: #2760c4; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  #status { margin: 16px 0 8px; color: var(--muted); }
+  #status.bad { color: var(--bad); font-weight: 600; }
+  .event { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+  .event h2 { font-size: 16px; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .warn { color: var(--bad); font-size: 12px; margin-top: 6px; }
+  .url { margin-top: 8px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); background: #faf8f4; border: 1px solid var(--line);
+         border-radius: 6px; padding: 6px 8px; overflow-wrap: anywhere; max-height: 4.4em; overflow: auto; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>ICS to Google Calendar</h1>
+  <p class="sub">Turn an <code>.ics</code> invite into an “add to Google Calendar” link. Parsed in your browser; nothing is uploaded.</p>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Choose or drop .ics files">
+    <div>
+      <b>Drop .ics files here</b>
+      <div class="muted">or click to choose — several at once is fine</div>
+    </div>
+  </div>
+  <input type="file" id="file" accept=".ics,.ical,.ifb,.icalendar,text/calendar" multiple>
+
+  <details>
+    <summary>Or paste the ICS text</summary>
+    <textarea id="paste" placeholder="BEGIN:VCALENDAR&#10;BEGIN:VEVENT&#10;…" spellcheck="false"></textarea>
+    <div class="btns"><button class="primary" id="convert">Convert</button></div>
+  </details>
+
+  <div id="status"></div>
+  <div id="out"></div>
+</main>
+
+<script>
+// ---------- ICS parsing ----------
+
+function unfold(text) {
+  // RFC 5545 §3.1: a line starting with a space or tab continues the previous one.
+  return text.replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '');
+}
+
+function unescapeText(v) {
+  return v.replace(/\\([\\;,nN])/g, (_, c) => (c === 'n' || c === 'N') ? '\n' : c);
+}
+
+// "DTSTART;TZID="America/New_York":20261018T133000" → { name, params, value }
+function parseLine(line) {
+  let inQuote = false, split = -1;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') inQuote = !inQuote;
+    else if (c === ':' && !inQuote) { split = i; break; }
+  }
+  if (split < 0) return null;
+  const [name, ...rawParams] = line.slice(0, split).split(';');
+  const params = {};
+  for (const p of rawParams) {
+    const eq = p.indexOf('=');
+    if (eq > 0) params[p.slice(0, eq).toUpperCase()] = p.slice(eq + 1).replace(/^"|"$/g, '');
+  }
+  return { name: name.toUpperCase(), params, value: line.slice(split + 1) };
+}
+
+function parseEvents(text) {
+  const events = [];
+  let cur = null, depth = 0;
+  for (const line of unfold(text).split('\n')) {
+    if (!line.trim()) continue;
+    const p = parseLine(line);
+    if (!p) continue;
+    if (p.name === 'BEGIN' && p.value.toUpperCase() === 'VEVENT') { cur = {}; depth = 0; continue; }
+    if (!cur) continue;
+    // Skip nested components such as VALARM so their DESCRIPTION doesn't win.
+    if (p.name === 'BEGIN') { depth++; continue; }
+    if (p.name === 'END') {
+      if (depth) { depth--; continue; }
+      if (p.value.toUpperCase() === 'VEVENT') { events.push(cur); cur = null; }
+      continue;
+    }
+    if (depth) continue;
+    if (!(p.name in cur)) cur[p.name] = p;
+  }
+  return events;
+}
+
+// ---------- Dates ----------
+
+// Common Windows zone names Outlook writes into TZID, mapped to IANA.
+const WINDOWS_TZ = {
+  'Eastern Standard Time': 'America/New_York', 'Central Standard Time': 'America/Chicago',
+  'Mountain Standard Time': 'America/Denver', 'US Mountain Standard Time': 'America/Phoenix',
+  'Pacific Standard Time': 'America/Los_Angeles', 'Alaskan Standard Time': 'America/Anchorage',
+  'Hawaiian Standard Time': 'Pacific/Honolulu', 'Atlantic Standard Time': 'America/Halifax',
+  'GMT Standard Time': 'Europe/London', 'Greenwich Standard Time': 'Atlantic/Reykjavik',
+  'W. Europe Standard Time': 'Europe/Berlin', 'Romance Standard Time': 'Europe/Paris',
+  'Central Europe Standard Time': 'Europe/Budapest', 'Central European Standard Time': 'Europe/Warsaw',
+  'E. Europe Standard Time': 'Europe/Chisinau', 'FLE Standard Time': 'Europe/Kiev',
+  'GTB Standard Time': 'Europe/Bucharest', 'Russian Standard Time': 'Europe/Moscow',
+  'India Standard Time': 'Asia/Kolkata', 'China Standard Time': 'Asia/Shanghai',
+  'Taipei Standard Time': 'Asia/Taipei', 'Singapore Standard Time': 'Asia/Singapore',
+  'Tokyo Standard Time': 'Asia/Tokyo', 'Korea Standard Time': 'Asia/Seoul',
+  'AUS Eastern Standard Time': 'Australia/Sydney', 'E. Australia Standard Time': 'Australia/Brisbane',
+  'Cen. Australia Standard Time': 'Australia/Adelaide', 'W. Australia Standard Time': 'Australia/Perth',
+  'New Zealand Standard Time': 'Pacific/Auckland', 'SA Pacific Standard Time': 'America/Bogota',
+  'E. South America Standard Time': 'America/Sao_Paulo', 'Arabian Standard Time': 'Asia/Dubai',
+  'Israel Standard Time': 'Asia/Jerusalem', 'South Africa Standard Time': 'Africa/Johannesburg',
+  'UTC': 'UTC', 'Coordinated Universal Time': 'UTC'
+};
+
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+function validZone(z) {
+  try { new Intl.DateTimeFormat('en-US', { timeZone: z }); return true; } catch { return false; }
+}
+
+function resolveZone(tzid) {
+  if (!tzid) return null;
+  if (validZone(tzid)) return tzid;
+  if (WINDOWS_TZ[tzid]) return WINDOWS_TZ[tzid];
+  // Some generators prefix a path, e.g. "/mozilla.org/20050126_1/America/New_York".
+  const m = tzid.match(/([A-Za-z_]+\/[A-Za-z_\-+]+(?:\/[A-Za-z_\-+]+)?)$/);
+  if (m && validZone(m[1])) return m[1];
+  return undefined; // present but unknown
+}
+
+const pad = n => String(n).padStart(2, '0');
+
+// Parsed time: { allDay, y, mo, d, h, mi, s, utc, zone }
+function parseDate(prop, warnings) {
+  if (!prop) return null;
+  const v = prop.value.trim();
+  let m = v.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m || (prop.params.VALUE || '').toUpperCase() === 'DATE') {
+    m = m || v.match(/^(\d{4})(\d{2})(\d{2})/);
+    if (!m) return null;
+    return { allDay: true, y: +m[1], mo: +m[2], d: +m[3], h: 0, mi: 0, s: 0 };
+  }
+  m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?(Z?)$/i);
+  if (!m) return null;
+  const t = { allDay: false, y: +m[1], mo: +m[2], d: +m[3], h: +m[4], mi: +m[5], s: +(m[6] || 0), utc: !!m[7] };
+  if (!t.utc && prop.params.TZID) {
+    const z = resolveZone(prop.params.TZID);
+    if (z) t.zone = z;
+    else warnings.add(`Unknown time zone “${prop.params.TZID}”, assumed ${LOCAL_TZ}.`);
+  }
+  return t;
+}
+
+// Offset (ms) of `zone` from UTC at the instant `utcMs`.
+function zoneOffset(zone, utcMs) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric'
+  }).formatToParts(new Date(utcMs));
+  const g = k => +parts.find(p => p.type === k).value;
+  return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - utcMs;
+}
+
+// Absolute instant (ms) for a parsed time. Floating times are read in the browser's zone.
+function toInstant(t) {
+  const wall = Date.UTC(t.y, t.mo - 1, t.d, t.h, t.mi, t.s);
+  if (t.utc) return wall;
+  const zone = t.zone || LOCAL_TZ;
+  let guess = wall - zoneOffset(zone, wall);
+  guess = wall - zoneOffset(zone, guess); // second pass settles DST edges
+  return guess;
+}
+
+function fromInstant(ms) {
+  const d = new Date(ms);
+  return { allDay: false, utc: true, y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(),
+           h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+}
+
+// Add a duration to a wall-clock time, keeping its zone (so +1 day survives DST).
+function addToWall(t, ms) {
+  const d = new Date(Date.UTC(t.y, t.mo - 1, t.d, t.h, t.mi, t.s) + ms);
+  return { ...t, y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(),
+           h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+}
+
+function parseDuration(v) {
+  const m = (v || '').trim().match(/^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/i);
+  if (!m) return null;
+  const ms = ((+m[2] || 0) * 7 * 86400 + (+m[3] || 0) * 86400 + (+m[4] || 0) * 3600 + (+m[5] || 0) * 60 + (+m[6] || 0)) * 1000;
+  return m[1] === '-' ? -ms : ms;
+}
+
+const fmtDate = t => `${t.y}${pad(t.mo)}${pad(t.d)}`;
+const fmtDateTime = t => `${fmtDate(t)}T${pad(t.h)}${pad(t.mi)}${pad(t.s)}${t.utc ? 'Z' : ''}`;
+
+// ---------- Event → link ----------
+
+function enc(v) { return encodeURIComponent(v).replace(/%20/g, '+'); }
+
+function buildEvent(ev) {
+  const warnings = new Set();
+  let start = parseDate(ev.DTSTART, warnings);
+  if (!start) return { error: 'No usable DTSTART', title: ev.SUMMARY ? unescapeText(ev.SUMMARY.value) : '(untitled)' };
+  let end = parseDate(ev.DTEND, warnings);
+  if (!end) {
+    const dur = ev.DURATION ? parseDuration(ev.DURATION.value) : null;
+    // No end: an all-day event lasts a day, a timed one an hour.
+    end = addToWall(start, dur != null ? dur : (start.allDay ? 86400000 : 3600000));
+  }
+
+  let dates, ctz;
+  if (start.allDay) {
+    if (!end.allDay) end = { ...end, allDay: true };
+    dates = `${fmtDate(start)}/${fmtDate(end)}`; // both sides exclusive-end, same as ICS
+  } else {
+    if (end.allDay) end = { ...end, allDay: false };
+    const sameZone = !start.utc && !end.utc && (start.zone || null) === (end.zone || null);
+    if (sameZone) {
+      // Keep wall-clock times and let Google apply the zone; keeps recurrences right across DST.
+      ctz = start.zone || LOCAL_TZ;
+      dates = `${fmtDateTime(start)}/${fmtDateTime(end)}`;
+    } else {
+      ctz = start.zone || end.zone || LOCAL_TZ;
+      dates = `${fmtDateTime(fromInstant(toInstant(start)))}/${fmtDateTime(fromInstant(toInstant(end)))}`;
+    }
+  }
+
+  const title = ev.SUMMARY ? unescapeText(ev.SUMMARY.value) : '';
+  let details = ev.DESCRIPTION ? unescapeText(ev.DESCRIPTION.value) : '';
+  const url = ev.URL ? ev.URL.value.trim() : '';
+  if (url && !details.includes(url)) details = details ? `${details}\n\n${url}` : url;
+  const location = ev.LOCATION ? unescapeText(ev.LOCATION.value) : '';
+
+  let link = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + `&text=${enc(title)}&dates=${dates}`;
+  if (details) link += `&details=${enc(details)}`;
+  if (location) link += `&location=${enc(location)}`;
+  if (ev.RRULE) link += `&recur=${enc('RRULE:' + ev.RRULE.value.trim())}`;
+  if (ctz) link += `&ctz=${enc(ctz)}`;
+
+  if (link.length > 8000) warnings.add('This link is very long (mostly the description); Google may cut it off.');
+  return { title: title || '(untitled)', start, end, ctz, location, recurring: !!ev.RRULE, link, warnings: [...warnings] };
+}
+
+// ---------- UI ----------
+
+const $ = s => document.querySelector(s);
+const out = $('#out'), status = $('#status');
+
+function describeWhen(e) {
+  if (e.start.allDay) {
+    const s = new Date(Date.UTC(e.start.y, e.start.mo - 1, e.start.d));
+    const last = new Date(Date.UTC(e.end.y, e.end.mo - 1, e.end.d) - 86400000);
+    const f = d => d.toLocaleDateString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    return last > s ? `${f(s)} – ${f(last)} (all day)` : `${f(s)} (all day)`;
+  }
+  const zone = e.ctz || LOCAL_TZ;
+  const opts = { timeZone: zone, weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+  const s = new Date(toInstant(e.start)), en = new Date(toInstant(e.end));
+  const sameDay = s.toLocaleDateString(undefined, { timeZone: zone }) === en.toLocaleDateString(undefined, { timeZone: zone });
+  const endStr = sameDay
+    ? en.toLocaleTimeString(undefined, { timeZone: zone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+    : en.toLocaleString(undefined, { ...opts, timeZoneName: 'short' });
+  return `${s.toLocaleString(undefined, opts)} – ${endStr}`;
+}
+
+function el(tag, attrs = {}, text) {
+  const n = document.createElement(tag);
+  Object.assign(n, attrs);
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function render(results) {
+  out.replaceChildren();
+  const ok = results.filter(r => !r.error);
+  status.className = ok.length ? '' : 'bad';
+  status.textContent = ok.length
+    ? `${ok.length} event${ok.length === 1 ? '' : 's'}`
+    : (results.length ? 'Found events, but none had a readable start time.' : 'No events (VEVENT) found in that.');
+
+  for (const r of results) {
+    const card = el('div', { className: 'event' });
+    card.append(el('h2', {}, r.title));
+    if (r.error) {
+      card.append(el('div', { className: 'warn' }, r.error));
+      out.append(card);
+      continue;
+    }
+    card.append(el('div', { className: 'meta' }, describeWhen(r) + (r.recurring ? ' · repeats' : '')));
+    if (r.location) card.append(el('div', { className: 'meta' }, r.location));
+    for (const w of r.warnings) card.append(el('div', { className: 'warn' }, w));
+
+    const btns = el('div', { className: 'btns' });
+    btns.append(el('a', { className: 'btn primary', href: r.link, target: '_blank', rel: 'noopener' }, 'Add to Google Calendar'));
+    const copy = el('button', {}, 'Copy link');
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(r.link); copy.textContent = 'Copied'; }
+      catch { copy.textContent = 'Copy failed'; }
+      setTimeout(() => (copy.textContent = 'Copy link'), 1400);
+    };
+    btns.append(copy);
+    card.append(btns, el('div', { className: 'url' }, r.link));
+    out.append(card);
+  }
+}
+
+function convertText(texts) {
+  const results = [];
+  for (const t of texts) for (const ev of parseEvents(t)) results.push(buildEvent(ev));
+  render(results);
+}
+
+async function handleFiles(files) {
+  if (!files || !files.length) return;
+  try { convertText(await Promise.all([...files].map(f => f.text()))); }
+  catch (e) { status.className = 'bad'; status.textContent = `Couldn't read that file: ${e.message}`; }
+}
+
+const drop = $('#drop'), fileInput = $('#file');
+drop.onclick = () => fileInput.click();
+drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } };
+fileInput.onchange = () => { handleFiles(fileInput.files); fileInput.value = ''; };
+
+// Accept drops anywhere on the page, highlight the zone while dragging.
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; drop.classList.add('over'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; drop.classList.remove('over');
+  const dt = e.dataTransfer;
+  if (dt.files.length) handleFiles(dt.files);
+  else { const t = dt.getData('text/plain'); if (t) convertText([t]); }
+});
+
+$('#convert').onclick = () => convertText([$('#paste').value]);
+</script>
+</body>
+</html>
