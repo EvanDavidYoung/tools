@@ -1,0 +1,48 @@
+diff --git a/src/decoders/dng.cpp b/src/decoders/dng.cpp
+index a5d7244..65a7f32 100644
+--- a/src/decoders/dng.cpp
++++ b/src/decoders/dng.cpp
+@@ -18,12 +18,43 @@
+ 
+ #include "../../internal/dcraw_defs.h"
+ 
++#ifdef USE_VC5_DIRECT
++extern "C" int libraw_vc5_decode(const void *src, size_t srclen, int rggb14,
++                                 unsigned short *dst, unsigned w, unsigned h);
++#endif
+ void LibRaw::vc5_dng_load_raw_placeholder()
+ {
++#ifdef USE_VC5_DIRECT
++    // Direct GoPro VC-5 decode (single-tile GPR) without Adobe DNG SDK
++    if (!dng_version)
++      throw LIBRAW_EXCEPTION_IO_EOF;
++    INT64 bytes = 0;
++    for (int i = 0; i < (int)tiff_nifds; i++)
++      if (tiff_ifd[i].offset == data_offset && tiff_ifd[i].comp == 9)
++        bytes = tiff_ifd[i].bytes;
++    if (bytes <= 0 || bytes > INT64(1) << 30)
++      throw LIBRAW_EXCEPTION_IO_CORRUPT;
++    unsigned char *buf = (unsigned char *)malloc(bytes);
++    if (!buf)
++      throw LIBRAW_EXCEPTION_ALLOC;
++    fseek(ifp, data_offset, SEEK_SET);
++    if (fread(buf, 1, bytes, ifp) != bytes)
++    {
++      free(buf);
++      throw LIBRAW_EXCEPTION_IO_EOF;
++    }
++    // GoPro writes either RGGB/14-bit (HERO6+) or GBRG/12-bit; pick by the colour at (0,0).
++    int rggb = (filters & 3) == 0;
++    int rc = libraw_vc5_decode(buf, bytes, rggb, raw_image, raw_width, raw_height);
++    free(buf);
++    if (rc)
++      throw LIBRAW_EXCEPTION_IO_CORRUPT;
++#else
+     // placeholder only, real decoding implemented in GPR SDK
+     if(!dng_version)
+     	throw LIBRAW_EXCEPTION_IO_EOF; // never reached
+     throw LIBRAW_EXCEPTION_UNSUPPORTED_FORMAT;
++#endif
+ }
+ void LibRaw::jxl_dng_load_raw_placeholder()
+ {

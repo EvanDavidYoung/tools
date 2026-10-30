@@ -15,3 +15,7 @@ wrangler.toml
 README.md
 shadowing/tests
 shadowing/tests/**
+raw-film-lab/wasm-src
+raw-film-lab/wasm-src/**
+raw-film-lab/vendor
+raw-film-lab/vendor/**

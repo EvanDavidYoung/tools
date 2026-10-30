@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Raw Film Lab</title>
+  <meta name="description" content="Develop GoPro GPR, iPhone ProRAW/DNG and camera RAW files in the browser with film-stock LUTs.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='7' width='26' height='18' rx='3' fill='%23e8a33d'/><circle cx='16' cy='16' r='5.5' fill='%23222'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo"></span>Raw Film Lab</div>
+    <label class="btn primary">
+      <input id="openFiles" type="file" multiple hidden
+        accept=".gpr,.dng,.cr2,.cr3,.crw,.nef,.nrw,.arw,.srf,.sr2,.raf,.orf,.rw2,.rwl,.pef,.srw,.x3f,.3fr,.fff,.iiq,.erf,.mef,.mos,.kdc,.dcr,.raw,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif,.tif,.tiff,.cube">
+      Open photos
+    </label>
+    <div class="spacer"></div>
+    <div class="viewtools">
+      <button id="before" class="btn ghost" title="Hold to compare with the unedited image (B)">Before</button>
+      <button id="rotL" class="btn ghost icon" title="Rotate left">⟲</button>
+      <button id="rotR" class="btn ghost icon" title="Rotate right">⟳</button>
+      <button id="flipH" class="btn ghost icon" title="Flip horizontal">⇋</button>
+      <button id="fit" class="btn ghost" title="Fit (F)">Fit</button>
+      <button id="zoom100" class="btn ghost" title="100% (1)">1:1</button>
+      <span id="zoomLabel" class="muted"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <nav id="filmstrip" class="filmstrip" aria-label="Opened photos"></nav>
+
+    <section id="stage" class="stage">
+      <canvas id="view"></canvas>
+      <div id="beforeBadge" class="badge" hidden>Before</div>
+      <div id="empty" class="empty">
+        <h2>Drop RAW photos here</h2>
+        <p>GoPro <b>.GPR</b>, iPhone <b>ProRAW .DNG</b>, Canon, Nikon, Sony, Fuji, Olympus, Panasonic, Pentax, Leica…<br>
+          plus JPEG / PNG / log-encoded stills. Everything is decoded locally in WebAssembly; nothing is uploaded.</p>
+        <label class="btn primary"><input type="file" multiple hidden id="openFiles2">Choose files</label>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <section class="card">
+        <canvas id="histogram" class="histogram"></canvas>
+        <dl id="info" class="info"></dl>
+      </section>
+
+      <details class="card" open>
+        <summary>Film look</summary>
+        <div class="lutbar">
+          <input id="lutSearch" type="search" placeholder="Search LUTs (portra, velvia, hp5…)">
+        </div>
+        <div class="lutbar">
+          <button id="lutPrev" class="btn ghost icon" title="Previous LUT ([)">‹</button>
+          <select id="lutSelect" aria-label="LUT"></select>
+          <button id="lutNext" class="btn ghost icon" title="Next LUT (])">›</button>
+        </div>
+        <div data-sliders="look"></div>
+        <label class="field">LUT expects
+          <select data-key="lutSpace"></select>
+        </label>
+        <div class="row small">
+          <span id="lutCount" class="muted"></span>
+          <span class="spacer"></span>
+          <label class="link"><input id="lutFiles" type="file" multiple accept=".png,.cube" hidden>Add LUTs</label>
+          <label class="link"><input id="lutFolder" type="file" webkitdirectory hidden>Add folder</label>
+        </div>
+      </details>
+
+      <details class="card" open>
+        <summary>Light</summary>
+        <label class="field">Exposure normalization
+          <select data-key="normalize"></select>
+        </label>
+        <div class="row small"><label class="check"><input id="baseline" type="checkbox"> Use DNG baseline exposure</label><span class="spacer"></span><span id="autoEv" class="muted"></span></div>
+        <div data-sliders="light"></div>
+        <label class="field">Tone curve
+          <select data-key="curve"></select>
+        </label>
+      </details>
+
+      <details class="card" open>
+        <summary>Color</summary>
+        <div class="row">
+          <button id="pickWhite" class="btn ghost" title="Pick a neutral point (W)">White balance picker</button>
+          <button id="wbReset" class="btn ghost" hidden>Reset WB</button>
+        </div>
+        <div data-sliders="color"></div>
+      </details>
+
+      <details class="card">
+        <summary>Effects</summary>
+        <div data-sliders="effects"></div>
+      </details>
+
+      <details class="card">
+        <summary>Input &amp; RAW develop</summary>
+        <label class="field">Input encoding
+          <select data-key="input"></select>
+        </label>
+        <label class="field">Demosaic
+          <select data-key="demosaic"></select>
+        </label>
+        <label class="field">Highlight recovery
+          <select data-key="highlight"></select>
+        </label>
+        <label class="field">White balance source
+          <select data-key="wbSource"></select>
+        </label>
+        <p class="hint">Demosaic, highlight and WB-source changes re-develop the RAW file. Use “Input encoding” to normalize log footage stills (Apple Log, S-Log3, LogC3) back to scene-linear.</p>
+      </details>
+
+      <section class="card export">
+        <div class="row">
+          <label class="field grow">Format
+            <select id="exportFormat"><option value="jpeg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option></select>
+          </label>
+          <label class="field grow">Size
+            <select id="exportSize"><option value="0">Full</option><option value="4096">4096 px</option><option value="2048">2048 px</option><option value="1080">1080 px</option></select>
+          </label>
+        </div>
+        <label id="qualityRow" class="slider"><span class="name">Quality</span><output id="qualityOut">92</output>
+          <input id="exportQuality" type="range" min="0.5" max="1" step="0.01" value="0.92"></label>
+        <div class="row">
+          <button id="export" class="btn primary grow" disabled>Export</button>
+          <button id="exportAll" class="btn grow" disabled>Export all</button>
+        </div>
+        <div class="row small">
+          <button id="resetAll" class="link">Reset edits</button>
+          <span class="spacer"></span>
+          <button id="savePreset" class="link">Save look</button>
+          <label class="link"><input id="presetFile" type="file" accept=".json" hidden>Load look</label>
+        </div>
+      </section>
+
+      <p class="credits">
+        RAW decoding: <a href="https://www.libraw.org/" target="_blank" rel="noopener">LibRaw</a> +
+        <a href="https://github.com/gopro/gpr" target="_blank" rel="noopener">GoPro VC-5</a>, compiled to WebAssembly.
+        Film LUTs: <a href="https://rawpedia.rawtherapee.com/Film_Simulation" target="_blank" rel="noopener">RawTherapee Film Simulation Collection</a>
+        (Pat David, Pavlov Dmitry, Michael Ezra), <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>, resampled to 64³.
+        Film names are trademarks of their owners.
+      </p>
+    </aside>
+  </main>
+
+  <footer id="status" class="status">Ready.</footer>
+  <div class="dropzone">Drop to open</div>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    // Second picker on the empty state forwards to the main input.
+    document.getElementById('openFiles2').onchange = (e) => {
+      const dt = new DataTransfer();
+      for (const f of e.target.files) dt.items.add(f);
+      const main = document.getElementById('openFiles');
+      main.files = dt.files;
+      main.dispatchEvent(new Event('change'));
+    };
+  </script>
+</body>
+</html>
