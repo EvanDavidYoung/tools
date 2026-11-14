@@ -1,0 +1,693 @@
+<!doctype html><html><head><meta charset=utf-8><title>Kerina Tab Player</title><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: notebook page — handwritten title, sticky transport, mini fretboard, wrapping tab staff per section; green pen ink + red marker playhead */
+:root{
+  --paper:#f5f8f6; --panel:#ffffff; --ink:#15231d; --muted:#5b6d64; --line:#b8c6bf;
+  --green:#1d6b4c; --green-soft:#dcebe3; --red:#d1392b; --red-soft:#f8dcd8;
+  --font-hand:"Caveat","Bradley Hand","Segoe Print",cursive;
+  --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --row:18px; --colw:30px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#101715; --panel:#17201c; --ink:#e2ebe6; --muted:#8ea198; --line:#3a4a43;
+  --green:#6fd3a5; --green-soft:#1d3a2e; --red:#ff6b5b; --red-soft:#4a2421; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#101715; --panel:#17201c; --ink:#e2ebe6; --muted:#8ea198; --line:#3a4a43;
+  --green:#6fd3a5; --green-soft:#1d3a2e; --red:#ff6b5b; --red-soft:#4a2421; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+.wrap{max-width:1100px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:end;gap:8px 20px;padding-block:20px 8px}
+h1{font-family:var(--font-hand);font-weight:700;font-size:56px;line-height:1;margin:0;color:var(--green);letter-spacing:.5px}
+.meta{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
+.chip{font-size:12px;font-weight:500;padding:3px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:var(--panel)}
+.chip b{color:var(--ink);font-weight:600}
+.chip.mono b{font-family:var(--font-mono)}
+
+/* transport */
+.transport{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:10px;border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.btn{font:inherit;font-weight:500;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;height:36px;min-width:36px;padding:0 10px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.btn:hover{border-color:var(--green)}
+.btn:focus-visible,.col:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.btn.play{background:var(--green);border-color:var(--green);color:var(--paper);width:52px;height:44px;border-radius:999px}
+.btn[aria-pressed="true"]{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn.play svg{width:20px;height:20px}
+.group{display:flex;align-items:center;gap:6px}
+.tempo{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.tempo input[type=range]{width:130px;accent-color:var(--green)}
+.tempo output{font-family:var(--font-mono);font-weight:700;color:var(--ink);min-width:3ch;text-align:right}
+select{font:inherit;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);padding:0 6px}
+label.small{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.readout{margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.readout b{color:var(--ink)}
+
+/* fretboard */
+.board-wrap{overflow-x:auto;margin-top:14px}
+.board{display:grid;grid-template-columns:28px repeat(13,minmax(34px,1fr));min-width:520px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px 4px}
+.board .sl{font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;height:20px}
+.board .fc{position:relative;height:20px;border-right:2px solid var(--line)}
+.board .fc.nut{border-right:5px solid var(--muted)}
+.board .fc::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--muted);opacity:.55}
+.board .fc .dot{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--red);color:#fff;
+  font:700 10px/18px var(--font-mono);text-align:center;transform:scale(0);transition:transform .08s}
+.board .fc.lit .dot{transform:scale(1)}
+.board .fn{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;padding-top:2px}
+.board .fn.inlay{color:var(--green);font-weight:700}
+.boardnote{font-size:12px;color:var(--muted);margin:6px 0 0}
+
+/* tab */
+.sec{margin-top:22px}
+.sec-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sec-h h2{font-size:13px;font-weight:600;margin:0;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.sec.cur .sec-h h2{color:var(--green)}
+.rep{font-family:var(--font-hand);font-size:22px;line-height:1;color:var(--red);font-weight:700}
+.pass{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.loopbtn{height:26px;font-size:12px;padding:0 8px;border-radius:6px}
+.strip{display:flex;flex-wrap:wrap;row-gap:14px}
+.labels,.col,.bar{height:calc(var(--row)*7)}
+.labels{width:22px;display:grid;grid-template-rows:repeat(7,var(--row));font:500 11px/var(--row) var(--font-mono);color:var(--muted)}
+.strings{display:grid;grid-template-rows:repeat(6,var(--row));
+  background:repeating-linear-gradient(to bottom,transparent 0 calc(var(--row)/2 - .5px),var(--line) calc(var(--row)/2 - .5px) calc(var(--row)/2 + .5px),transparent calc(var(--row)/2 + .5px) var(--row))}
+.col{--cell:var(--paper);width:var(--colw);padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;display:grid;grid-template-rows:var(--row) 1fr;font:inherit}
+.col .tech{font:700 10px/var(--row) var(--font-mono);color:var(--muted);text-align:center}
+.col .tech.unsure{color:var(--red)}
+.col .strings span{display:flex;align-items:center;justify-content:center}
+.col .strings b{font:700 13px/1 var(--font-mono);background:var(--cell);padding:1px 2px;border-radius:3px;min-width:12px;text-align:center}
+.col.unsure .strings b{color:var(--red)}
+.col:hover{--cell:var(--green-soft)}
+.col:hover .strings{background-color:var(--green-soft)}
+.col.on{--cell:var(--red-soft)}
+.col.on .strings{background-color:var(--red-soft);box-shadow:inset 2px 0 0 var(--red)}
+.col.on .strings b{color:var(--red)}
+.col.inloop .tech{box-shadow:inset 0 -2px 0 var(--green)}
+.bar{width:12px;display:grid;grid-template-rows:var(--row) 1fr}
+.bar .strings{position:relative}
+.bar .strings::before{content:"";position:absolute;top:calc(var(--row)/2);bottom:calc(var(--row)/2);left:3px;width:3px;background:var(--ink)}
+.bar .strings::after{content:"";position:absolute;top:calc(var(--row)/2);bottom:calc(var(--row)/2);left:8px;width:1px;background:var(--ink)}
+.bar.end .strings::before{left:auto;right:3px}
+.bar.end .strings::after{left:auto;right:8px}
+.bar i{position:absolute;width:4px;height:4px;border-radius:50%;background:var(--ink)}
+.bar.start i{left:11px}.bar.end i{right:11px}
+.bar i:nth-child(1){top:calc(var(--row)*2.5 - 2px)}.bar i:nth-child(2){top:calc(var(--row)*3.5 - 2px)}
+.bar.start{width:16px}.bar.end{width:16px}
+
+.ins .strings span{cursor:pointer;border-radius:3px}
+.ins .strings span:hover,.ins .strings span.picked{background:var(--green);opacity:.35}
+.ins{width:16px;height:calc(var(--row)*7);padding:0;border:0;background:transparent;cursor:pointer;display:grid;grid-template-rows:var(--row) 1fr;font:700 12px/var(--row) var(--font-mono);color:var(--muted)}
+.ins .plus{text-align:center;opacity:.35}
+.ins:hover .plus,.ins:focus-visible .plus{opacity:1;color:var(--green)}
+.ins:hover .strings{background-color:var(--green-soft)}
+.ins{cursor:default}
+.ins:focus-visible{outline:2px solid var(--green);outline-offset:1px}
+.cellinput.wide{width:120px}
+.cellinput.bad{border-color:var(--red)}
+.cellinput{position:fixed;z-index:20;width:44px;height:26px;font:700 13px/1 var(--font-mono);text-align:center;color:var(--ink);background:var(--panel);border:2px solid var(--green);border-radius:6px;padding:0;outline:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+
+/* editor */
+details.edit{margin-top:32px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+details.edit summary{cursor:pointer;padding:12px 14px;font-weight:600}
+.edit-body{padding:0 14px 14px;display:grid;gap:10px}
+.edit-body p{margin:0;color:var(--muted);max-width:70ch}
+.edit-body code{font-family:var(--font-mono);font-size:12px;background:var(--green-soft);padding:1px 4px;border-radius:4px;color:var(--ink)}
+textarea{width:100%;min-height:340px;font:500 13px/1.5 var(--font-mono);background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+.errors{color:var(--red);font-size:12px;font-family:var(--font-mono);white-space:pre-wrap;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.status{font-size:12px;color:var(--green)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-top:10px}
+.legend b{font-family:var(--font-mono);color:var(--ink)}
+.legend .u{color:var(--red)}
+@media (max-width:600px){
+  h1{font-size:44px}
+  .readout{margin-left:0;width:100%;text-align:left}
+  .tempo input[type=range]{width:100px}
+}
+@media (prefers-reduced-motion:reduce){.board .fc .dot{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Kerina</h1>
+    <div class="meta">
+      <span class="chip">Capo <b id="capoChip">1st fret</b></span>
+      <span class="chip mono">Tuning <b>D G D F♯ A D</b></span>
+      <span class="chip">Fingerpicked</span>
+    </div>
+  </header>
+
+  <div class="transport" role="toolbar" aria-label="Playback">
+    <div class="group">
+      <button class="btn" id="restart" title="Back to start (Home)" aria-label="Back to start"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="btn" id="prev" title="Previous note (←)" aria-label="Previous note"><svg viewBox="0 0 24 24"><path d="M18 5v14L7 12z"/></svg></button>
+      <button class="btn play" id="play" title="Play / pause (Space)" aria-label="Play"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4v16l13-8z"/></svg></button>
+      <button class="btn" id="next" title="Next note (→)" aria-label="Next note"><svg viewBox="0 0 24 24"><path d="M6 5v14l11-7z"/></svg></button>
+    </div>
+    <div class="tempo">
+      <label for="tempo">Tempo</label>
+      <input type="range" id="tempo" min="40" max="220" step="2" value="120">
+      <output id="tempoOut" for="tempo">120</output><span>notes/min</span>
+    </div>
+    <div class="group">
+      <button class="btn" id="loop" aria-pressed="false" title="Loop the song or the chosen section">Loop</button>
+      <button class="btn" id="click" aria-pressed="false" title="Click on every note">Click</button>
+      <button class="btn" id="countin" aria-pressed="true" title="Four clicks before playback starts">Count-in</button>
+      <label class="small" for="capo">Capo
+        <select id="capo">
+          <option value="0">None</option><option value="1" selected>1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        </select>
+      </label>
+    </div>
+    <div class="readout" id="readout" aria-live="off"></div>
+  </div>
+
+  <div class="board-wrap"><div class="board" id="board" aria-label="Fretboard showing the current notes"></div></div>
+  <p class="boardnote">Fret numbers count up from the capo. Click any column in the tab to jump there. Double-click a string in a column to change its note: type a fret (add h, p or s for technique), leave it empty to remove it, Enter to save, Esc to cancel. To add a new step, click a string in the gap (under a faint <b>+</b>) between two columns and type the fret. Double-click the new column's other strings to add notes played with it.</p>
+
+  <div class="legend">
+    <span><b>H</b> hammer-on</span><span><b>P</b> pull-off</span><span><b>/</b> slide</span>
+    <span class="u"><b class="u">?</b> red notes were hard to read on the page; check them by ear</span>
+  </div>
+
+  <main id="tab"></main>
+
+  <details class="edit">
+    <summary>Edit the tab</summary>
+    <div class="edit-body">
+      <p>One line is one step. Write each note as <code>string:fret</code>, with string 6 as the low D. Put several notes on a line to play them together. Add <code>h</code>, <code>p</code> or <code>s</code> after a fret for hammer-on, pull-off or slide. Add <code>?</code> to flag a guess. Start a section with <code>[Name]</code>, and add <code>x2</code> to repeat it.</p>
+      <textarea id="src" spellcheck="false" aria-label="Tab source"></textarea>
+      <pre class="errors" id="errors"></pre>
+      <div class="row">
+        <button class="btn" id="apply">Apply changes</button>
+        <button class="btn" id="reset">Restore my transcription</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+const ORIGINAL = `# Kerina — capo 1st fret, tuning D G D F# A D (string 6 → 1)
+# Transcribed from two handwritten pages. "?" marks a note that was hard to read.
+
+[Page 1 · Part 1 riff] x2
+6:0
+5:2 4:0
+5:2 4:0
+6:4
+5:0 4:0
+6:2
+5:0 4:0
+5:0 4:0
+6:2
+5:0 4:0
+
+[Page 1 · Part 1 run]
+6:0
+5:2
+5:4h           // 2 hammer-on 4
+4:0
+6:4 2:0
+3:0
+6:2 4:2
+3:0
+4:2
+3:0
+4:2
+4:0
+5:4 ?          // "pinky"
+5:2 ?
+6:0
+5:2
+5:4h           // 2 hammer-on 4
+
+[Page 1 · Part 2]
+4:0 ?
+6:4 2:0
+3:0 ?
+4:2
+3:0
+4:2
+3:0
+4:2
+4:0p           // "pull off"
+5:4
+5:2
+
+[Page 2 · Part 1 melody]
+5:2
+4:0
+3:0h
+3:6
+2:0
+3:0
+4:2
+4:0 ?
+6:0
+4:0 3:8
+4:0 3:7
+4:0 3:5
+4:0
+3:0
+4:0
+
+[Page 2 · Part 1 turnaround] x2
+4:4 3:3
+4:2 3:1
+6:5
+4:0 3:0
+6:0
+
+[Page 2 · Part 1 ending]
+4:4 3:3
+4:2 3:1
+
+[Page 2 · Part 2]
+6:5
+3:0 2:0
+6:5
+3:0 2:0
+6:7
+5:6 4:7
+5:6 4:7
+6:0
+5:2 4:0
+5:2 4:0
+6:5
+5:4 4:5
+5:4 4:5
+6:5
+5:4 4:5
+6:0
+5:2 4:0
+5:2 4:0
+6:5
+5:4 4:5
+5:4 4:5
+6:5
+5:4 4:5
+6:0
+`;
+
+const OPEN = {1:62,2:57,3:54,4:50,5:43,6:38};           // D4 A3 F#3 D3 G2 D2
+const SNAME = {1:'D',2:'A',3:'F♯',4:'D',5:'G',6:'D'};
+const NOTE = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+const TECH = {h:'H',p:'P',s:'/'};
+const STORE = 'kerina-tab-v3';
+const $ = id => document.getElementById(id);
+
+let sections = [], cols = [], steps = [];
+let pos = 0, playing = false, loopOn = false, loopSec = null;
+let clickOn = false, countIn = true, capo = 1, bpm = 120;
+
+function parse(text){
+  const out = [], errors = []; let cur = null;
+  text.split('\n').forEach((raw, i) => {
+    const line = raw.replace(/\/\/.*$/, '').trim();
+    if (!line || line.startsWith('#')) return;
+    const h = line.match(/^\[(.+?)\]\s*(?:[x×](\d+))?$/i);
+    if (h){ cur = {name:h[1].trim(), repeat:Math.min(8, Math.max(1, +(h[2]||1))), cols:[]}; out.push(cur); return; }
+    if (!cur){ cur = {name:'Tab', repeat:1, cols:[]}; out.push(cur); }
+    const col = {notes:[], unsure:false, line:i};
+    for (const t of line.split(/\s+/)){
+      if (t === '?'){ col.unsure = true; continue; }
+      const m = t.match(/^([1-6]):(\d{1,2})([hps])?(\?)?$/i);
+      if (!m){ errors.push(`Line ${i+1}: "${t}" isn't a note. Write string:fret, like 5:2.`); continue; }
+      if (m[4]) col.unsure = true;
+      const s = +m[1];
+      if (col.notes.some(n => n.s === s)){ errors.push(`Line ${i+1}: string ${s} appears twice.`); continue; }
+      col.notes.push({s, f:+m[2], tech:(m[3]||'').toLowerCase()});
+    }
+    if (col.notes.length) cur.cols.push(col);
+  });
+  return {sections: out.filter(s => s.cols.length), errors};
+}
+
+function build(text){
+  const r = parse(text);
+  sections = r.sections; cols = []; steps = [];
+  sections.forEach((sec, si) => {
+    sec.cols.forEach(c => { c.sec = si; c.id = cols.length; cols.push(c); });
+    sec.start = steps.length;
+    for (let p = 0; p < sec.repeat; p++) sec.cols.forEach(c => steps.push({col:c, sec:si, pass:p}));
+    sec.end = steps.length;
+  });
+  pos = Math.min(pos, Math.max(0, steps.length - 1));
+  if (loopSec !== null && loopSec >= sections.length) loopSec = null;
+  render();
+  return r.errors;
+}
+
+function el(tag, cls, html){ const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+function render(){
+  const tab = $('tab'); tab.innerHTML = '';
+  sections.forEach((sec, si) => {
+    const block = el('section', 'sec'); sec.el = block;
+    const head = el('div', 'sec-h');
+    head.append(el('h2', null, sec.name));
+    if (sec.repeat > 1) head.append(el('span', 'rep', '×' + sec.repeat));
+    sec.passEl = el('span', 'pass'); head.append(sec.passEl);
+    const lb = el('button', 'btn loopbtn', 'Loop this'); lb.setAttribute('aria-pressed', 'false');
+    lb.onclick = () => setLoopSection(loopSec === si ? null : si);
+    sec.loopBtn = lb; head.append(lb);
+    block.append(head);
+
+    const strip = el('div', 'strip');
+    const labels = el('div', 'labels'); labels.append(el('span'));
+    for (let s = 1; s <= 6; s++) labels.append(el('span', null, SNAME[s]));
+    strip.append(labels);
+    if (sec.repeat > 1) strip.append(el('div', 'bar start', '<span></span><span class="strings"><i></i><i></i></span>'));
+    const insBtn = (line, where) => {
+      const ib = el('div', 'ins', '<span class="plus">+</span><span class="strings">' + [1,2,3,4,5,6].map(s => `<span data-s="${s}" role="button" tabindex="-1" aria-label="${where}: note on the ${SNAME[s]} string"></span>`).join('') + '</span>');
+      ib.title = where + ' — click a string';
+      ib.onclick = e => { const sp = e.target.closest('.strings > span'); if (sp) startInsert(line, +sp.dataset.s, sp); };
+      return ib;
+    };
+    sec.cols.forEach((c, ci) => {
+      strip.append(insBtn(c.line, 'Add a step before this one'));
+      const b = el('button', 'col' + (c.unsure ? ' unsure' : ''));
+      const techs = c.notes.filter(n => n.tech).map(n => TECH[n.tech]).join('');
+      b.append(el('span', 'tech' + (c.unsure && !techs ? ' unsure' : ''), techs || (c.unsure ? '?' : '')));
+      const st = el('span', 'strings');
+      for (let s = 1; s <= 6; s++){
+        const n = c.notes.find(n => n.s === s);
+        const sp = el('span', null, n ? `<b>${n.f}</b>` : ''); sp.dataset.s = s;
+        st.append(sp);
+      }
+      b.append(st);
+      b.setAttribute('aria-label', 'Jump to ' + c.notes.map(n => `string ${n.s} fret ${n.f}`).join(', '));
+      b.onclick = () => { seek(firstStepOf(c)); if (!playing) audition(steps[pos]); };
+      b.ondblclick = e => { const sp = e.target.closest('.strings > span'); if (sp) startEdit(c, +sp.dataset.s, sp); };
+      b.title = 'Double-click a string to change its note';
+      c.el = b; strip.append(b);
+    });
+    strip.append(insBtn(sec.cols[sec.cols.length - 1].line + 1, 'Add a step at the end of this section'));
+    if (sec.repeat > 1) strip.append(el('div', 'bar end', '<span></span><span class="strings"><i></i><i></i></span>'));
+    block.append(strip);
+    tab.append(block);
+  });
+  markLoop(); paint(true);
+}
+
+function firstStepOf(c){
+  const cur = steps[pos];
+  // stay in the current pass if clicking inside the section that is playing
+  if (cur && cur.sec === c.sec){
+    const i = steps.findIndex((s, k) => s.col === c && s.pass === cur.pass);
+    if (i >= 0) return i;
+  }
+  return steps.findIndex(s => s.col === c);
+}
+
+/* ---------- fretboard ---------- */
+const FRETS = 12;
+const boardCells = {};
+(function buildBoard(){
+  const b = $('board');
+  for (let s = 1; s <= 6; s++){
+    b.append(el('div', 'sl', SNAME[s]));
+    for (let f = 0; f <= FRETS; f++){
+      const c = el('div', 'fc' + (f === 0 ? ' nut' : ''), '<span class="dot"></span>');
+      boardCells[s + ':' + f] = c; b.append(c);
+    }
+  }
+  b.append(el('div'));
+  for (let f = 0; f <= FRETS; f++) b.append(el('div', 'fn' + ([3,5,7,9,12].includes(f) ? ' inlay' : ''), f === 0 ? 'open' : f));
+})();
+let litCells = [];
+function lightBoard(col){
+  litCells.forEach(c => c.classList.remove('lit')); litCells = [];
+  if (!col) return;
+  col.notes.forEach(n => {
+    const c = boardCells[n.s + ':' + Math.min(n.f, FRETS)];
+    if (c){ c.querySelector('.dot').textContent = n.f; c.classList.add('lit'); litCells.push(c); }
+  });
+}
+
+/* ---------- UI state ---------- */
+let lastCol = null, lastSec = null;
+function paint(force){
+  const st = steps[pos];
+  if (!st){ $('readout').textContent = 'No notes yet'; return; }
+  if (lastCol && lastCol !== st.col) lastCol.el && lastCol.el.classList.remove('on');
+  st.col.el.classList.add('on'); lastCol = st.col;
+  const sec = sections[st.sec];
+  if (lastSec !== sec){ if (lastSec && lastSec.el) { lastSec.el.classList.remove('cur'); lastSec.passEl.textContent = ''; } sec.el.classList.add('cur'); lastSec = sec; }
+  sec.passEl.textContent = sec.repeat > 1 ? `pass ${st.pass + 1} of ${sec.repeat}` : '';
+  lightBoard(st.col);
+  const names = st.col.notes.slice().sort((a,b) => b.s - a.s).map(n => { const m = OPEN[n.s] + capo + n.f; return NOTE[m % 12] + (Math.floor(m/12) - 1); }).join(' ');
+  $('readout').innerHTML = `<b>${names}</b><br>note ${pos + 1} of ${steps.length}`;
+  scrollToCol(st.col.el, force);
+}
+function scrollToCol(e, force){
+  const r = e.getBoundingClientRect();
+  const top = document.querySelector('.transport').getBoundingClientRect().bottom + 10;
+  if (r.top < top || r.bottom > innerHeight - 20){
+    const y = scrollY + r.top - top - innerHeight * 0.18;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!force || playing) scrollTo({top:Math.max(0, y), behavior: reduce ? 'auto' : 'smooth'});
+  }
+}
+function seek(i){ if (i < 0 || i >= steps.length) return; pos = i; if (playing){ nextIdx = i; nextTime = ctx.currentTime + 0.05; uiQueue = []; } paint(); }
+function range(){ return loopSec !== null ? [sections[loopSec].start, sections[loopSec].end] : [0, steps.length]; }
+function markLoop(){
+  sections.forEach((s, i) => { s.loopBtn.setAttribute('aria-pressed', String(loopSec === i)); });
+  cols.forEach(c => c.el.classList.toggle('inloop', loopSec !== null && c.sec === loopSec));
+  $('loop').setAttribute('aria-pressed', String(loopOn));
+  $('loop').textContent = loopOn ? (loopSec !== null ? 'Looping section' : 'Looping song') : 'Loop';
+}
+function setLoopSection(i){
+  loopSec = i; loopOn = i !== null ? true : loopOn;
+  if (i !== null){ const [a, b] = range(); if (pos < a || pos >= b) seek(a); }
+  markLoop();
+}
+
+/* ---------- audio ---------- */
+let ctx = null, master = null, bufCache = {}, stringVoice = {};
+function ensureAudio(){
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = ctx.createDynamicsCompressor();
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; lp.Q.value = 0.4;
+  master = ctx.createGain(); master.gain.value = 0.55;
+  master.connect(lp); lp.connect(comp); comp.connect(ctx.destination);
+}
+function pluckBuffer(midi){
+  if (bufCache[midi]) return bufCache[midi];
+  const sr = ctx.sampleRate, f = 440 * Math.pow(2, (midi - 69) / 12);
+  const N = Math.max(2, Math.round(sr / f)), len = Math.floor(sr * 3);
+  const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+  const ring = new Float32Array(N);
+  let prev = 0;
+  for (let i = 0; i < N; i++){ const r = Math.random() * 2 - 1; ring[i] = (r + prev) * 0.5; prev = r; }
+  const decay = midi < 50 ? 0.9975 : 0.9965;
+  let k = 0;
+  for (let i = 0; i < len; i++){
+    const a = ring[k], b = ring[(k + 1) % N];
+    d[i] = a;
+    ring[k] = decay * 0.5 * (a + b);
+    k = (k + 1) % N;
+  }
+  const fade = Math.floor(sr * 0.15);
+  for (let i = 0; i < fade; i++) d[len - 1 - i] *= i / fade;
+  return (bufCache[midi] = buf);
+}
+function playNote(n, t, soft){
+  const midi = OPEN[n.s] + capo + n.f;
+  const src = ctx.createBufferSource(); src.buffer = pluckBuffer(midi);
+  const g = ctx.createGain(); const v = (soft ? 0.5 : 0.9) * (n.s >= 5 ? 1 : 0.85);
+  g.gain.setValueAtTime(v, t);
+  src.connect(g); g.connect(master); src.start(t);
+  const old = stringVoice[n.s];
+  if (old){ try { old.g.gain.setValueAtTime(old.g.gain.value, t); old.g.gain.linearRampToValueAtTime(0.0001, t + 0.03); old.src.stop(t + 0.05); } catch(e){} }
+  stringVoice[n.s] = {src, g};
+}
+function playCol(col, t){
+  col.notes.slice().sort((a,b) => b.s - a.s).forEach((n, i) => playNote(n, t + i * 0.012, n.tech === 'h' || n.tech === 'p' || n.tech === 's'));
+}
+function tick(t, accent){
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = accent ? 1800 : 1200; o.type = 'square';
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(accent ? 0.18 : 0.1, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.05);
+}
+function audition(st){ if (!st) return; ensureAudio(); ctx.resume(); playCol(st.col, ctx.currentTime + 0.01); }
+
+/* ---------- scheduler ---------- */
+let timer = null, raf = null, nextTime = 0, nextIdx = 0, uiQueue = [], beatCount = 0;
+const spb = () => 60 / bpm;
+function schedule(){
+  const [a, b] = range();
+  while (nextTime < ctx.currentTime + 0.12){
+    if (nextIdx >= b || nextIdx < a){
+      if (loopOn) nextIdx = a;
+      else { const endAt = nextTime; uiQueue.push({t:endAt, idx:-1}); clearInterval(timer); timer = null; return; }
+    }
+    playCol(steps[nextIdx].col, nextTime);
+    if (clickOn) tick(nextTime, beatCount % 4 === 0);
+    uiQueue.push({t:nextTime, idx:nextIdx});
+    beatCount++; nextIdx++; nextTime += spb();
+  }
+}
+function frame(){
+  const now = ctx.currentTime;
+  while (uiQueue.length && uiQueue[0].t <= now){
+    const q = uiQueue.shift();
+    if (q.idx === -1){ stop(true); return; }
+    pos = q.idx; paint();
+  }
+  raf = requestAnimationFrame(frame);
+}
+function play(){
+  if (!steps.length) return;
+  ensureAudio(); ctx.resume();
+  const [a, b] = range(); if (pos < a || pos >= b) pos = a;
+  playing = true; setPlayIcon();
+  let t = ctx.currentTime + 0.08;
+  if (countIn){ for (let i = 0; i < 4; i++) tick(t + i * spb(), i === 0); t += 4 * spb(); }
+  nextTime = t; nextIdx = pos; beatCount = 0; uiQueue = [];
+  schedule(); timer = setInterval(schedule, 25); raf = requestAnimationFrame(frame);
+}
+function stop(ended){
+  playing = false; setPlayIcon();
+  clearInterval(timer); timer = null; cancelAnimationFrame(raf); uiQueue = [];
+  if (ctx){ const t = ctx.currentTime; Object.values(stringVoice).forEach(v => { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.linearRampToValueAtTime(0.0001, t + (ended ? 1.2 : 0.08)); } catch(e){} }); stringVoice = {}; }
+  if (ended){ pos = range()[0]; paint(); }
+}
+function setPlayIcon(){
+  $('playIcon').innerHTML = playing ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>' : '<path d="M7 4v16l13-8z"/>';
+  $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+}
+
+/* ---------- controls ---------- */
+$('play').onclick = () => playing ? stop() : play();
+$('restart').onclick = () => { const wasPlaying = playing; if (playing) stop(); pos = range()[0]; paint(); if (wasPlaying) play(); };
+$('prev').onclick = () => { if (playing) stop(); seek(Math.max(0, pos - 1)); audition(steps[pos]); };
+$('next').onclick = () => { if (playing) stop(); seek(Math.min(steps.length - 1, pos + 1)); audition(steps[pos]); };
+$('tempo').oninput = e => { bpm = +e.target.value; $('tempoOut').textContent = bpm; save('bpm', bpm); };
+$('loop').onclick = () => { if (loopOn){ loopOn = false; loopSec = null; } else loopOn = true; markLoop(); };
+$('click').onclick = () => { clickOn = !clickOn; $('click').setAttribute('aria-pressed', String(clickOn)); };
+$('countin').onclick = () => { countIn = !countIn; $('countin').setAttribute('aria-pressed', String(countIn)); };
+$('capo').onchange = e => { capo = +e.target.value; $('capoChip').textContent = capo ? ['','1st','2nd','3rd','4th','5th'][capo] + ' fret' : 'none'; paint(); };
+document.addEventListener('keydown', e => {
+  if (e.target.closest('textarea, input, select')) return;
+  if (e.code === 'Space'){ e.preventDefault(); $('play').click(); }
+  else if (e.key === 'ArrowRight'){ e.preventDefault(); $('next').click(); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); $('prev').click(); }
+  else if (e.key === 'Home'){ e.preventDefault(); $('restart').click(); }
+});
+
+/* ---------- double-click note editing ---------- */
+let currentSrc = '';
+function startEdit(c, s, cell){
+  if (playing) stop();
+  document.querySelectorAll('.cellinput').forEach(x => x.remove());
+  const n = c.notes.find(n => n.s === s);
+  const r = cell.getBoundingClientRect();
+  const inp = document.createElement('input');
+  inp.className = 'cellinput'; inp.type = 'text'; inp.inputMode = 'text';
+  inp.setAttribute('aria-label', `Fret on string ${s} (${SNAME[s]}). Leave empty to remove. Add h, p or s for technique.`);
+  inp.value = n ? n.f + (n.tech || '') : '';
+  inp.style.left = (r.left + r.width / 2 - 22) + 'px';
+  inp.style.top = (r.top + r.height / 2 - 13) + 'px';
+  document.body.append(inp);
+  inp.focus(); inp.select();
+  let done = false;
+  const finish = commit => {
+    if (done) return; done = true; inp.remove();
+    if (!commit) return;
+    const v = inp.value.trim().toLowerCase();
+    if (v !== '' && !/^\d{1,2}[hps]?$/.test(v)){ $('status').textContent = `"${inp.value}" isn't a fret. Use a number like 4, or 4h / 4p / 4s.`; return; }
+    editNote(c, s, v);
+  };
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter'){ e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape'){ e.preventDefault(); finish(false); }
+  });
+  inp.addEventListener('blur', () => finish(true));
+  const close = () => finish(true);
+  addEventListener('scroll', close, {once:true, passive:true});
+}
+function startInsert(line, s, cell){
+  if (playing) stop();
+  document.querySelectorAll('.cellinput').forEach(x => x.remove());
+  cell.classList.add('picked');
+  const r = cell.getBoundingClientRect();
+  const inp = document.createElement('input');
+  inp.className = 'cellinput'; inp.type = 'text';
+  inp.placeholder = 'fret';
+  inp.setAttribute('aria-label', `New note on the ${SNAME[s]} string: type a fret, optionally followed by h, p or s`);
+  inp.style.left = Math.max(4, r.left + r.width / 2 - 22) + 'px';
+  inp.style.top = (r.top + r.height / 2 - 13) + 'px';
+  document.body.append(inp);
+  inp.focus();
+  let done = false;
+  const finish = commit => {
+    if (done) return;
+    const v = inp.value.trim().toLowerCase();
+    if (commit && v && !/^\d{1,2}[hps]?$/.test(v)){ inp.classList.add('bad'); inp.title = 'Type a fret number, like 0 or 4 (or 4h)'; return false; }
+    done = true; inp.remove(); cell.classList.remove('picked');
+    if (!commit || !v) return;
+    const lines = currentSrc.split('\n');
+    lines.splice(line, 0, `${s}:${v}`);
+    const text = lines.join('\n');
+    save('src', text); $('src').value = text;
+    applySrc(text, 'Step added. Saved in this browser.');
+    const nc = cols.find(c => c.line === line);
+    if (nc){ pos = steps.findIndex(s => s.col === nc); paint(true); audition(steps[pos]); }
+  };
+  inp.addEventListener('input', () => inp.classList.remove('bad'));
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter'){ e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape'){ e.preventDefault(); finish(false); }
+  });
+  inp.addEventListener('blur', () => { if (finish(true) === false) finish(false); });
+  addEventListener('scroll', () => { if (finish(true) === false) finish(false); }, {once:true, passive:true});
+}
+function editNote(c, s, v){
+  const notes = c.notes.filter(n => n.s !== s).map(n => ({...n}));
+  if (v !== ''){ const m = v.match(/^(\d{1,2})([hps])?$/); notes.push({s, f:+m[1], tech:m[2] || ''}); }
+  notes.sort((a, b) => b.s - a.s);
+  const lines = currentSrc.split('\n');
+  const comment = (lines[c.line].match(/\/\/.*$/) || [''])[0];
+  const body = notes.map(n => `${n.s}:${n.f}${n.tech}`).join(' ');
+  if (!body) lines.splice(c.line, 1);
+  else lines[c.line] = comment ? body.padEnd(15) + comment : body;   // editing confirms the note, so the "?" is dropped
+  const text = lines.join('\n');
+  const keep = pos;
+  save('src', text); $('src').value = text;
+  applySrc(text, 'Note changed. Saved in this browser.');
+  pos = Math.min(keep, steps.length - 1); paint(true);
+  audition(steps[pos]);
+}
+
+/* ---------- editor ---------- */
+function load(k){ try { return localStorage.getItem(STORE + ':' + k); } catch(e){ return null; } }
+function save(k, v){ try { v == null ? localStorage.removeItem(STORE + ':' + k) : localStorage.setItem(STORE + ':' + k, v); } catch(e){} }
+function applySrc(text, msg){
+  if (playing) stop();
+  currentSrc = text;
+  const errs = build(text);
+  $('errors').textContent = errs.join('\n');
+  $('status').textContent = msg || '';
+}
+$('apply').onclick = () => { const t = $('src').value; save('src', t); applySrc(t, 'Applied. Your edits are saved in this browser.'); };
+$('reset').onclick = () => { save('src', null); $('src').value = ORIGINAL; applySrc(ORIGINAL, 'Restored the original transcription.'); };
+
+const savedBpm = +load('bpm'); if (savedBpm >= 40 && savedBpm <= 220){ bpm = savedBpm; $('tempo').value = bpm; $('tempoOut').textContent = bpm; }
+const start = load('src') || ORIGINAL;
+$('src').value = start;
+applySrc(start);
+</script>
+
+</body></html>
