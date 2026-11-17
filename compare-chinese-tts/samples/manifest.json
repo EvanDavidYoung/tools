@@ -1,0 +1,817 @@
+{
+ "samples": {
+  "torture": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/torture--minimax_speech-2.8-hd.mp3",
+    "chars": 40,
+    "ttfb": 1183.0,
+    "total": 1789.4,
+    "duration": 8.64,
+    "bytes": 138861,
+    "cost": 0.004,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/torture--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 40,
+    "ttfb": 1493.8,
+    "total": 2510.9,
+    "duration": 9.744,
+    "bytes": 194971,
+    "cost": 0.0006
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/torture--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 40,
+    "ttfb": 2132.8,
+    "total": 6175.7,
+    "duration": 9.221,
+    "bytes": 147538,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/torture--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 40,
+    "ttfb": 4141.9,
+    "total": 4198.5,
+    "duration": 7.28,
+    "bytes": 349440,
+    "cost": 4e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/torture--hexgrad_kokoro-82m.mp3",
+    "chars": 40,
+    "ttfb": 427.1,
+    "total": 576.9,
+    "duration": 9.643,
+    "bytes": 56904,
+    "cost": 2.5e-05
+   }
+  ],
+  "sandhi": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/sandhi--minimax_speech-2.8-hd.mp3",
+    "chars": 30,
+    "ttfb": 1185.5,
+    "total": 1689.9,
+    "duration": 6.696,
+    "bytes": 107757,
+    "cost": 0.003,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/sandhi--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 30,
+    "ttfb": 1542.5,
+    "total": 2269.7,
+    "duration": 6.624,
+    "bytes": 132571,
+    "cost": 0.00045
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/sandhi--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 30,
+    "ttfb": 673.2,
+    "total": 3372.7,
+    "duration": 6.609,
+    "bytes": 105742,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/sandhi--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 30,
+    "ttfb": 3843.4,
+    "total": 4242.8,
+    "duration": 6.68,
+    "bytes": 320640,
+    "cost": 3e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/sandhi--hexgrad_kokoro-82m.mp3",
+    "chars": 30,
+    "ttfb": 2268.9,
+    "total": 2807.7,
+    "duration": 7.42,
+    "bytes": 42984,
+    "cost": 1.9e-05
+   }
+  ],
+  "third": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/third--minimax_speech-2.8-hd.mp3",
+    "chars": 26,
+    "ttfb": 531.5,
+    "total": 949.8,
+    "duration": 6.3,
+    "bytes": 101421,
+    "cost": 0.0026,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/third--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 26,
+    "ttfb": 1508.7,
+    "total": 2277.9,
+    "duration": 6.624,
+    "bytes": 132571,
+    "cost": 0.00039
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/third--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 26,
+    "ttfb": 668.1,
+    "total": 3467.7,
+    "duration": 5.904,
+    "bytes": 94457,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/third--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 26,
+    "ttfb": 3409.6,
+    "total": 3798.2,
+    "duration": 6.44,
+    "bytes": 309120,
+    "cost": 2.6e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/third--hexgrad_kokoro-82m.mp3",
+    "chars": 26,
+    "ttfb": 431.1,
+    "total": 704.1,
+    "duration": 8.258,
+    "bytes": 35976,
+    "cost": 1.6e-05
+   }
+  ],
+  "poly": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/poly--minimax_speech-2.8-hd.mp3",
+    "chars": 39,
+    "ttfb": 1299.0,
+    "total": 2236.5,
+    "duration": 9.396,
+    "bytes": 150957,
+    "cost": 0.0039,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/poly--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 39,
+    "ttfb": 1487.4,
+    "total": 2671.3,
+    "duration": 9.264,
+    "bytes": 185371,
+    "cost": 0.000585
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/poly--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 39,
+    "ttfb": 697.7,
+    "total": 5007.1,
+    "duration": 10.606,
+    "bytes": 169690,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/poly--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 39,
+    "ttfb": 4222.2,
+    "total": 4426.8,
+    "duration": 9.76,
+    "bytes": 468480,
+    "cost": 3.9e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/poly--hexgrad_kokoro-82m.mp3",
+    "chars": 39,
+    "ttfb": 772.2,
+    "total": 1000.0,
+    "duration": 9.228,
+    "bytes": 57360,
+    "cost": 2.4e-05
+   }
+  ],
+  "numbers": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/numbers--minimax_speech-2.8-hd.mp3",
+    "chars": 57,
+    "ttfb": 429.3,
+    "total": 1385.1,
+    "duration": 14.256,
+    "bytes": 228717,
+    "cost": 0.0057,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/numbers--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 57,
+    "ttfb": 1195.9,
+    "total": 2477.5,
+    "duration": 15.168,
+    "bytes": 303451,
+    "cost": 0.000855
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/numbers--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 57,
+    "ttfb": 568.4,
+    "total": 5646.7,
+    "duration": 13.218,
+    "bytes": 211486,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/numbers--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 57,
+    "ttfb": 8609.2,
+    "total": 8813.1,
+    "duration": 14.08,
+    "bytes": 675840,
+    "cost": 5.7e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/numbers--hexgrad_kokoro-82m.mp3",
+    "chars": 57,
+    "ttfb": 2731.1,
+    "total": 3478.9,
+    "duration": 15.059,
+    "bytes": 86544,
+    "cost": 3.5e-05
+   }
+  ],
+  "digits": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/digits--minimax_speech-2.8-hd.mp3",
+    "chars": 50,
+    "ttfb": 533.7,
+    "total": 1454.1,
+    "duration": 13.752,
+    "bytes": 220653,
+    "cost": 0.005,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/digits--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 50,
+    "ttfb": 1812.7,
+    "total": 2818.5,
+    "duration": 16.128,
+    "bytes": 322651,
+    "cost": 0.00075
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/digits--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 50,
+    "ttfb": 690.3,
+    "total": 4782.3,
+    "duration": 10.71,
+    "bytes": 171362,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/digits--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 50,
+    "ttfb": 7930.4,
+    "total": 7990.3,
+    "duration": 13.8,
+    "bytes": 662400,
+    "cost": 5e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/digits--hexgrad_kokoro-82m.mp3",
+    "chars": 50,
+    "ttfb": 482.8,
+    "total": 688.0,
+    "duration": 11.732,
+    "bytes": 73344,
+    "cost": 3.1e-05
+   }
+  ],
+  "erhua": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/erhua--minimax_speech-2.8-hd.mp3",
+    "chars": 32,
+    "ttfb": 1234.4,
+    "total": 1559.2,
+    "duration": 6.3,
+    "bytes": 101421,
+    "cost": 0.0032,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/erhua--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 32,
+    "ttfb": 1373.6,
+    "total": 2202.4,
+    "duration": 6.768,
+    "bytes": 135451,
+    "cost": 0.00048
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/erhua--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 32,
+    "ttfb": 597.2,
+    "total": 2280.2,
+    "duration": 4.519,
+    "bytes": 72306,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/erhua--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 32,
+    "ttfb": 3193.8,
+    "total": 3338.0,
+    "duration": 5.56,
+    "bytes": 266880,
+    "cost": 3.2e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/erhua--hexgrad_kokoro-82m.mp3",
+    "chars": 32,
+    "ttfb": 369.5,
+    "total": 627.9,
+    "duration": 7.069,
+    "bytes": 46200,
+    "cost": 2e-05
+   }
+  ],
+  "mixed": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/mixed--minimax_speech-2.8-hd.mp3",
+    "chars": 92,
+    "ttfb": 936.3,
+    "total": 1758.8,
+    "duration": 12.42,
+    "bytes": 199341,
+    "cost": 0.0092,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/mixed--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 92,
+    "ttfb": 1655.9,
+    "total": 2759.5,
+    "duration": 14.856,
+    "bytes": 297211,
+    "cost": 0.00138
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/mixed--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 92,
+    "ttfb": 775.2,
+    "total": 4940.1,
+    "duration": 10.658,
+    "bytes": 170526,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/mixed--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 92,
+    "ttfb": 5267.8,
+    "total": 5462.0,
+    "duration": 11.36,
+    "bytes": 545280,
+    "cost": 9.2e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/mixed--hexgrad_kokoro-82m.mp3",
+    "chars": 92,
+    "ttfb": 3188.0,
+    "total": 3462.6,
+    "duration": 10.693,
+    "bytes": 63288,
+    "cost": 5.7e-05
+   }
+  ],
+  "particles": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/particles--minimax_speech-2.8-hd.mp3",
+    "chars": 36,
+    "ttfb": 400.7,
+    "total": 969.9,
+    "duration": 8.1,
+    "bytes": 130221,
+    "cost": 0.0036,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/particles--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 36,
+    "ttfb": 589.8,
+    "total": 1348.7,
+    "duration": 8.376,
+    "bytes": 167611,
+    "cost": 0.00054
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/particles--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 36,
+    "ttfb": 612.0,
+    "total": 3872.5,
+    "duration": 6.713,
+    "bytes": 107414,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/particles--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 36,
+    "ttfb": 3854.5,
+    "total": 4043.5,
+    "duration": 7.2,
+    "bytes": 345600,
+    "cost": 3.6e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/particles--hexgrad_kokoro-82m.mp3",
+    "chars": 36,
+    "ttfb": 3910.9,
+    "total": 4114.8,
+    "duration": 8.52,
+    "bytes": 49368,
+    "cost": 2.2e-05
+   }
+  ],
+  "prosody": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/prosody--minimax_speech-2.8-hd.mp3",
+    "chars": 64,
+    "ttfb": 880.8,
+    "total": 1752.6,
+    "duration": 13.068,
+    "bytes": 209709,
+    "cost": 0.0064,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/prosody--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 64,
+    "ttfb": 1173.3,
+    "total": 2256.9,
+    "duration": 14.304,
+    "bytes": 286171,
+    "cost": 0.00096
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/prosody--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 64,
+    "ttfb": 680.3,
+    "total": 6098.2,
+    "duration": 12.173,
+    "bytes": 194768,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/prosody--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 64,
+    "ttfb": 7501.1,
+    "total": 8348.4,
+    "duration": 15.2,
+    "bytes": 729600,
+    "cost": 6.4e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/prosody--hexgrad_kokoro-82m.mp3",
+    "chars": 64,
+    "ttfb": 2448.4,
+    "total": 2849.8,
+    "duration": 14.545,
+    "bytes": 85200,
+    "cost": 4e-05
+   }
+  ],
+  "names": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/names--minimax_speech-2.8-hd.mp3",
+    "chars": 36,
+    "ttfb": 404.2,
+    "total": 1014.4,
+    "duration": 8.82,
+    "bytes": 141741,
+    "cost": 0.0036,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/names--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 36,
+    "ttfb": 1176.6,
+    "total": 2209.2,
+    "duration": 9.744,
+    "bytes": 194971,
+    "cost": 0.00054
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/names--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 36,
+    "ttfb": 1318.8,
+    "total": 4512.2,
+    "duration": 8.464,
+    "bytes": 135417,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/names--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 36,
+    "ttfb": 5836.4,
+    "total": 5996.5,
+    "duration": 10.0,
+    "bytes": 480000,
+    "cost": 3.6e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/names--hexgrad_kokoro-82m.mp3",
+    "chars": 36,
+    "ttfb": 2239.9,
+    "total": 2406.4,
+    "duration": 9.473,
+    "bytes": 52632,
+    "cost": 2.2e-05
+   }
+  ],
+  "classic": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/classic--minimax_speech-2.8-hd.mp3",
+    "chars": 40,
+    "ttfb": 798.8,
+    "total": 1451.9,
+    "duration": 10.44,
+    "bytes": 167661,
+    "cost": 0.004,
+    "options": {
+     "language_boost": "Chinese"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/classic--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 40,
+    "ttfb": 1353.9,
+    "total": 2538.9,
+    "duration": 13.416,
+    "bytes": 268411,
+    "cost": 0.0006
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/classic--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 40,
+    "ttfb": 557.3,
+    "total": 4791.2,
+    "duration": 10.475,
+    "bytes": 167600,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/classic--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 40,
+    "ttfb": 6033.5,
+    "total": 6430.0,
+    "duration": 14.16,
+    "bytes": 679680,
+    "cost": 4e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/classic--hexgrad_kokoro-82m.mp3",
+    "chars": 40,
+    "ttfb": 1794.4,
+    "total": 1973.8,
+    "duration": 10.328,
+    "bytes": 60360,
+    "cost": 2.5e-05
+   }
+  ],
+  "yue": [
+   {
+    "model": "minimax/speech-2.8-hd",
+    "voice": "Chinese (Mandarin)_News_Anchor",
+    "file": "samples/yue--minimax_speech-2.8-hd.mp3",
+    "chars": 21,
+    "ttfb": 911.2,
+    "total": 1183.3,
+    "duration": 3.492,
+    "bytes": 56493,
+    "cost": 0.0021,
+    "options": {
+     "language_boost": "Chinese,Yue"
+    }
+   },
+   {
+    "model": "qwen/qwen-audio-3.0-tts-flash",
+    "voice": "loongjohn",
+    "file": "samples/yue--qwen_qwen-audio-3.0-tts-flash.mp3",
+    "chars": 21,
+    "ttfb": 1297.6,
+    "total": 2049.6,
+    "duration": 5.328,
+    "bytes": 106651,
+    "cost": 0.000315
+   },
+   {
+    "model": "fish-audio/s2.1-pro-free:free",
+    "voice": "",
+    "file": "samples/yue--fish-audio_s2.1-pro-free_free.mp3",
+    "chars": 21,
+    "ttfb": 754.6,
+    "total": 1901.6,
+    "duration": 3.788,
+    "bytes": 60603,
+    "cost": 0.0
+   },
+   {
+    "model": "google/gemini-3.1-flash-tts-preview",
+    "voice": "Kore",
+    "file": "samples/yue--google_gemini-3.1-flash-tts-preview.mp3",
+    "chars": 21,
+    "ttfb": 2292.6,
+    "total": 2378.7,
+    "duration": 4.52,
+    "bytes": 216960,
+    "cost": 2.1e-05
+   },
+   {
+    "model": "hexgrad/kokoro-82m",
+    "voice": "zf_xiaoxiao",
+    "file": "samples/yue--hexgrad_kokoro-82m.mp3",
+    "chars": 21,
+    "ttfb": 786.9,
+    "total": 908.7,
+    "duration": 4.649,
+    "bytes": 30624,
+    "cost": 1.3e-05
+   }
+  ]
+ },
+ "models": [
+  {
+   "id": "minimax/speech-2.8-hd",
+   "name": "MiniMax: Speech 2.8 HD",
+   "voice": "Chinese (Mandarin)_News_Anchor",
+   "price": 100.0
+  },
+  {
+   "id": "qwen/qwen-audio-3.0-tts-flash",
+   "name": "Qwen: Qwen-Audio-3.0-TTS Flash",
+   "voice": "loongjohn",
+   "price": 15.0
+  },
+  {
+   "id": "fish-audio/s2.1-pro-free:free",
+   "name": "Fish Audio: S2.1 Pro Free (free)",
+   "voice": "",
+   "price": 0.0
+  },
+  {
+   "id": "google/gemini-3.1-flash-tts-preview",
+   "name": "Google: Gemini 3.1 Flash TTS Preview",
+   "voice": "Kore",
+   "price": 1.0
+  },
+  {
+   "id": "hexgrad/kokoro-82m",
+   "name": "hexgrad: Kokoro 82M",
+   "voice": "zf_xiaoxiao",
+   "price": 0.62
+  }
+ ],
+ "generatedAt": "2026-11-17T16:53:26+00:00"
+}

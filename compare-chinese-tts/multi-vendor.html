@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chinese TTS Bench — compare Mandarin text-to-speech engines</title>
+<style>
+:root{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#222221;
+  --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,0.10);
+  --s1:#3987e5; --s1-dim:#184f95;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --han: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+html[data-theme="light"]{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f0efec;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,0.10);
+  --s1:#2a78d6; --s1-dim:#86b6ef;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--plane); color:var(--ink);
+  font-family:var(--sans); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--s1)}
+h1,h2,h3{margin:0; font-weight:600; letter-spacing:-0.01em}
+h1{font-size:18px}
+h2{font-size:15px}
+h3{font-size:13px; color:var(--ink2)}
+.wrap{max-width:1180px; margin:0 auto; padding:0 20px 80px}
+
+header{border-bottom:1px solid var(--grid); background:var(--surface); position:sticky; top:0; z-index:50}
+.hdr{max-width:1180px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:14px}
+.logo{width:26px;height:26px;border-radius:7px;background:var(--s1);display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none}
+.sub{color:var(--muted); font-size:12px}
+.spacer{flex:1}
+.tabs{display:flex; gap:2px; max-width:1180px; margin:0 auto; padding:0 20px}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-size:13px;
+  padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--ink2)}
+.tab[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--s1)}
+
+.panel{display:none; padding-top:22px}
+.panel.on{display:block}
+
+.card{background:var(--surface); border:1px solid var(--ring); border-radius:10px; padding:16px; margin-bottom:14px}
+.card > header{background:none;border:0;position:static;padding:0;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+
+label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:4px}
+input,select,textarea,button{font-family:inherit; font-size:13px}
+input[type=text],input[type=password],input[type=number],select,textarea{
+  width:100%; background:var(--surface-2); color:var(--ink); border:1px solid var(--ring);
+  border-radius:7px; padding:7px 9px; outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--s1)}
+textarea{resize:vertical; line-height:1.7}
+.zh{font-family:var(--han); font-size:17px; line-height:1.9}
+
+button.btn{background:var(--s1); color:#fff; border:0; border-radius:7px; padding:8px 14px; cursor:pointer; font-weight:550}
+button.btn:hover{filter:brightness(1.1)}
+button.btn:disabled{opacity:.45; cursor:not-allowed; filter:none}
+button.ghost{background:transparent; color:var(--ink2); border:1px solid var(--ring)}
+button.ghost:hover{background:var(--surface-2); color:var(--ink)}
+button.sm{padding:5px 9px; font-size:12px; font-weight:450}
+
+.row{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap}
+.grid{display:grid; gap:10px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+/* ---------- sentence picker ---------- */
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px}
+.chip{border:1px solid var(--ring); background:var(--surface-2); color:var(--ink2);
+  border-radius:999px; padding:5px 11px; font-size:12px; cursor:pointer}
+.chip:hover{color:var(--ink); border-color:var(--axis)}
+.chip[aria-pressed="true"]{background:var(--s1); border-color:var(--s1); color:#fff}
+.listen{margin-top:10px; border-top:1px solid var(--grid); padding-top:10px}
+.listen table{width:auto; border-collapse:collapse; font-size:12px}
+.listen td:nth-child(2){padding-right:26px}
+.listen td{padding:3px 8px 3px 0; vertical-align:top}
+.listen td:first-child{font-family:var(--han); font-size:15px; white-space:nowrap}
+.ok{color:var(--good)} .bad{color:var(--crit)}
+code{font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px}
+
+/* ---------- provider cards ---------- */
+.pcard{border:1px solid var(--ring); border-radius:10px; padding:13px; background:var(--surface); margin-bottom:10px}
+.pcard.off{opacity:.55}
+.phead{display:flex; align-items:center; gap:9px; margin-bottom:10px}
+.phead h2{flex:1}
+.badge{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:5px;
+  border:1px solid var(--ring); color:var(--muted)}
+.badge.id{text-transform:none; letter-spacing:0; font-family:var(--mono); font-size:11px}
+.badge.cors{color:var(--good); border-color:color-mix(in srgb, var(--good) 40%, transparent)}
+.badge.nokey{color:var(--warn); border-color:color-mix(in srgb, var(--warn) 45%, transparent)}
+.sw{position:relative; width:34px; height:20px; flex:none}
+.sw input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; z-index:2}
+.sw span{position:absolute; inset:0; background:var(--axis); border-radius:999px; transition:.15s}
+.sw span::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px;
+  background:#fff; border-radius:50%; transition:.15s}
+.sw input:checked + span{background:var(--s1)}
+.sw input:checked + span::after{transform:translateX(14px)}
+
+/* ---------- results ---------- */
+table.res{width:100%; border-collapse:collapse; font-size:12.5px}
+table.res th{
+  text-align:left; font-weight:550; color:var(--muted); font-size:10.5px; text-transform:uppercase;
+  letter-spacing:.06em; padding:0 10px 7px 0; border-bottom:1px solid var(--axis); white-space:nowrap;
+}
+table.res td{padding:9px 10px 9px 0; border-bottom:1px solid var(--grid); vertical-align:middle}
+table.res td.num{font-variant-numeric:tabular-nums; text-align:right; padding-right:14px; white-space:nowrap}
+table.res th.num{text-align:right; padding-right:14px}
+table.res tr:hover td{background:var(--surface-2)}
+.bar{height:8px; border-radius:4px; background:var(--s1); min-width:2px}
+.barwrap{width:110px; background:var(--grid); border-radius:4px; overflow:hidden}
+.pname{font-weight:550}
+.pmeta{color:var(--muted); font-size:11px}
+.status{display:inline-flex; align-items:center; gap:5px; font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+audio{height:32px; width:190px; vertical-align:middle}
+
+/* ---------- scoring ---------- */
+.scard{border:1px solid var(--ring); border-radius:10px; padding:13px; background:var(--surface); margin-bottom:10px}
+.crit{display:grid; grid-template-columns:150px auto; gap:8px; align-items:center; margin:5px 0}
+.crit > span{font-size:12px; color:var(--ink2)}
+.stars{display:flex; gap:3px}
+.star{width:26px;height:26px;border-radius:6px;border:1px solid var(--ring);background:var(--surface-2);
+  color:var(--muted); cursor:pointer; font-size:12px; font-variant-numeric:tabular-nums; padding:0}
+.star:hover{border-color:var(--s1)}
+.star[aria-pressed="true"]{background:var(--s1); border-color:var(--s1); color:#fff}
+.meter{height:8px;border-radius:4px;background:var(--grid);overflow:hidden;width:120px;display:inline-block;vertical-align:middle}
+.meter > i{display:block;height:100%;background:var(--s1);border-radius:4px}
+
+.note{color:var(--muted); font-size:12px}
+.warnbox{border:1px solid color-mix(in srgb, var(--warn) 45%, transparent); background:color-mix(in srgb, var(--warn) 9%, transparent);
+  border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--ink2); margin-bottom:14px}
+.warnbox b{color:var(--ink)}
+.err{color:var(--crit); font-size:12px; font-family:var(--mono); word-break:break-word; max-width:420px; display:inline-block}
+.hide{display:none !important}
+.ref th{position:sticky; top:0; background:var(--surface)}
+.ref td{font-size:12.5px}
+.tag{font-size:11px; padding:1px 6px; border-radius:4px; border:1px solid var(--ring); color:var(--muted); white-space:nowrap}
+.tag.best{color:var(--good); border-color:color-mix(in srgb,var(--good) 40%, transparent)}
+ul.tight{margin:6px 0; padding-left:18px}
+ul.tight li{margin:3px 0; color:var(--ink2); font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <div class="logo">音</div>
+    <div>
+      <h1>Chinese TTS Bench</h1>
+      <div class="sub">Side-by-side Mandarin text-to-speech comparison — runs entirely in your browser</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost sm" id="themeBtn">Light</button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-panel="bench" aria-selected="true">Bench</button>
+    <button class="tab" role="tab" data-panel="providers" aria-selected="false">Providers &amp; keys</button>
+    <button class="tab" role="tab" data-panel="board" aria-selected="false">Leaderboard</button>
+    <button class="tab" role="tab" data-panel="ref" aria-selected="false">Reference</button>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ BENCH ============ -->
+<section class="panel on" id="p-bench">
+  <div class="card">
+    <header><h2>1 · Test text</h2><div class="spacer"></div>
+      <span class="note" id="charCount">0 characters</span>
+    </header>
+    <div class="chips" id="chips"></div>
+    <textarea id="text" rows="3" class="zh"></textarea>
+    <div class="listen hide" id="listenPanel"></div>
+  </div>
+
+  <div class="card">
+    <header><h2>2 · Run</h2><div class="spacer"></div>
+      <span class="note" id="enabledCount"></span>
+    </header>
+    <div class="row">
+      <button class="btn" id="runBtn">Synthesize on all enabled engines</button>
+      <button class="btn ghost" id="playAllBtn">Play sequentially</button>
+      <button class="btn ghost" id="clearBtn">Clear results</button>
+      <div class="spacer"></div>
+      <label style="display:flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink2);margin:0">
+        <input type="checkbox" id="blind" style="width:auto"> Blind mode (hide engine names)
+      </label>
+    </div>
+    <div class="note" style="margin-top:8px" id="runNote"></div>
+  </div>
+
+  <div class="card" id="resCard" style="display:none">
+    <header><h2>3 · Objective metrics</h2><div class="spacer"></div>
+      <button class="btn ghost sm" id="csvBtn">Export CSV</button>
+      <button class="btn ghost sm" id="jsonBtn">Export JSON</button>
+    </header>
+    <div style="overflow-x:auto"><table class="res" id="resTable"></table></div>
+    <div class="note" style="margin-top:10px">
+      <b>TTFB</b> = time until the server's first response byte. <b>Total</b> = until the full audio is in hand.
+      <b>RTF</b> = seconds of audio produced per second of wall clock (higher is faster; &gt;1 beats real time).
+      Cost uses the editable per-engine rates on the Providers tab.
+    </div>
+  </div>
+
+  <div class="card" id="scoreCard" style="display:none">
+    <header><h2>4 · Listen and score</h2><div class="spacer"></div>
+      <button class="btn ghost sm" id="revealBtn">Reveal names</button>
+      <button class="btn ghost sm" id="saveScoresBtn">Save scores to leaderboard</button>
+    </header>
+    <div id="scoreList"></div>
+  </div>
+</section>
+
+<!-- ============ PROVIDERS ============ -->
+<section class="panel" id="p-providers">
+  <div class="warnbox">
+    <b>About your API keys.</b> Keys are kept in this browser's <code>localStorage</code> and are sent only to
+    each vendor's own API endpoint, directly from this page — there is no backend and nothing is proxied or logged.
+    That still means a key is sitting in browser storage on this machine and is visible to any script running on
+    this page, so use restricted / low-quota test keys, and click <b>Forget all keys</b> when you're done.
+    <div style="margin-top:8px"><button class="btn ghost sm" id="forgetBtn">Forget all keys</button></div>
+  </div>
+  <div class="card">
+    <header><h2>Optional: CORS proxy prefix</h2></header>
+    <div class="note" style="margin-bottom:8px">
+      Leave this empty — every engine here is meant to work without it. Fill it in only if a call fails with a
+      browser block instead of a real HTTP status (OpenAI's speech endpoint is the known case). Requests then go to
+      <code>&lt;prefix&gt; + encodeURIComponent(targetUrl)</code>, so your keys pass through whatever you point this
+      at — run your own hop, don't use a public one.
+    </div>
+    <input type="text" id="proxyInput" placeholder="http://localhost:8790/?url=" autocomplete="off" spellcheck="false">
+  </div>
+  <div id="providerList"></div>
+</section>
+
+<!-- ============ LEADERBOARD ============ -->
+<section class="panel" id="p-board">
+  <div class="card">
+    <header><h2>Aggregate scores</h2><div class="spacer"></div>
+      <button class="btn ghost sm" id="wipeBoardBtn">Reset leaderboard</button>
+    </header>
+    <div id="boardBody"></div>
+  </div>
+</section>
+
+<!-- ============ REFERENCE ============ -->
+<section class="panel" id="p-ref"><div id="refBody"></div></section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================================
+   TEST CORPUS
+   Each sentence targets a specific, well-known failure mode of Mandarin TTS.
+   `listen` lists the exact tokens to judge, with the correct reading and the
+   mistake engines actually make, so scoring is about facts and not vibes.
+   ========================================================================== */
+const SENTENCES = [
+  {
+    id:"torture", label:"All-round torture test", default:true,
+    zh:"银行的行长说：这批行李重三十公斤，得重新称一称。他还没还钱，音乐会还得等一会儿。",
+    focus:"Five polyphones, a 得 ambiguity and a 还 pair in one breath — the single best smoke test.",
+    listen:[
+      ["行长","háng zhǎng","xíng cháng"],
+      ["行李","xíng li","háng lǐ"],
+      ["重三十公斤","zhòng","chóng"],
+      ["重新","chóng xīn","zhòng xīn"],
+      ["称一称","chēng yi chēng","chèn"],
+      ["还没还钱","hái méi huán qián","hái méi hái qián"],
+      ["得等","děi děng","dé/de děng"],
+      ["一会儿","yí huìr","yī huì ér"]
+    ]
+  },
+  {
+    id:"sandhi", label:"一 / 不 tone sandhi",
+    zh:"一个人一天不吃不喝一定不行，一半一半地吃，一不小心就不够了。",
+    focus:"一 shifts yī→yì→yí by the following tone; 不 shifts bù→bú before a 4th tone. Engines that store one fixed tone per character fail audibly here.",
+    listen:[
+      ["一个","yí ge","yī ge"],
+      ["一天","yì tiān","yī tiān"],
+      ["不吃","bù chī","bú chī"],
+      ["不喝","bù hē","—"],
+      ["一定","yí dìng","yī dìng"],
+      ["不行","bù xíng","bú xíng"],
+      ["一半","yí bàn","yī bàn"],
+      ["不够","bú gòu","bù gòu"]
+    ]
+  },
+  {
+    id:"third", label:"Third-tone sandhi chains",
+    zh:"我很好，你也很好，我们俩都有五把小雨伞，你想我也想。",
+    focus:"Runs of 3rd tones must raise all but the last (2-2-3, not 3-3-3). 五把小雨伞 is a five-deep chain — most engines only handle two.",
+    listen:[
+      ["很好","hén hǎo","hěn hǎo"],
+      ["也很好","yé hén hǎo","yě hěn hǎo"],
+      ["我们俩","wǒ men liǎ","wǒ men liǎng"],
+      ["五把小雨伞","wú bá xiáo yú sǎn","wǔ bǎ xiǎo yǔ sǎn"],
+      ["你想我也想","ní xiáng wó yé xiǎng","flat 3-3-3-3"]
+    ]
+  },
+  {
+    id:"poly", label:"Polyphone minefield",
+    zh:"他的头发长得很长，这位好客的朋友爱好看书，看着看着就睡着了，觉得这觉睡得真香。",
+    focus:"发/长/好/着/觉 each have two readings picked purely from context. 着 appears three times with three different sounds.",
+    listen:[
+      ["头发","tóu fa","tóu fā"],
+      ["长得很长","zhǎng de hěn cháng","cháng de hěn cháng"],
+      ["好客","hào kè","hǎo kè"],
+      ["爱好","ài hào","ài hǎo"],
+      ["看着","kàn zhe","kàn zháo"],
+      ["睡着了","shuì zháo le","shuì zhe le"],
+      ["觉得","jué de","jiào de"],
+      ["这觉","zhè jiào","zhè jué"]
+    ]
+  },
+  {
+    id:"numbers", label:"Numbers, dates, units, money",
+    zh:"2026年3月14日，气温零下3.5℃，总计1,234.56元，同比增长87.2%，第2季度用了2个小时20分钟。",
+    focus:"Text normalisation, not acoustics: year digits read one-by-one, 2 as 两 before a measure word, decimals as 点, and ℃/%/, handled rather than spelled.",
+    listen:[
+      ["2026年","èr líng èr liù nián","liǎng qiān líng èr shí liù nián"],
+      ["3.5℃","sān diǎn wǔ shèshìdù","sān diǎn wǔ C"],
+      ["1,234.56元","yìqiān liǎngbǎi sānshísì diǎn wǔ liù yuán","reads the comma"],
+      ["第2季度","dì èr jìdù","dì liǎng jìdù"],
+      ["2个小时","liǎng ge xiǎoshí","èr ge xiǎoshí"]
+    ]
+  },
+  {
+    id:"digits", label:"Phone numbers and IDs",
+    zh:"请拨打13800138000，或者拨010-62785001转8008号分机，订单号是A1B2C3。",
+    focus:"Phone digits should be read singly with 1 as 幺 (or at least yī), never chunked into 一百三十八亿. Latin+digit order codes are a second trap.",
+    listen:[
+      ["13800138000","yāo sān bā líng líng …","一百三十八亿…"],
+      ["010-62785001","líng yāo líng, gàng/dào …","reads the hyphen as 'minus'"],
+      ["8008号","bā líng líng bā hào","bā qiān líng bā hào"],
+      ["A1B2C3","ei yāo bi èr sei sān","garbled / silent"]
+    ]
+  },
+  {
+    id:"erhua", label:"Erhua and Beijing colloquial",
+    zh:"今儿个天儿不错，咱们上那边儿的小胡同儿遛遛弯儿，顺道买点儿花儿。",
+    focus:"儿 must fuse into the preceding syllable as a retroflex colouring, not be spoken as a separate ér. Very few non-Chinese vendors get this right.",
+    listen:[
+      ["今儿个","jīnr ge","jīn ér ge"],
+      ["天儿","tiānr","tiān ér"],
+      ["那边儿","nà biānr","nà biān ér"],
+      ["胡同儿","hú tòngr","hú tóng ér"],
+      ["遛遛弯儿","liù liu wānr","liū liū wān ér"],
+      ["点儿","diǎnr","diǎn ér"]
+    ]
+  },
+  {
+    id:"mixed", label:"Chinese–English code switching",
+    zh:"我们用 Python 的 async/await 调用 OpenAI 的 API，latency 大概 200 毫秒，P99 在 1.2 秒左右，CEO 说要上 Kubernetes。",
+    focus:"Latin words must keep English phonology without a hard reset of pitch or speed at every switch. Listen for stalls, a changed voice timbre, or spelled-out acronyms.",
+    listen:[
+      ["Python","native English word","拼音-ised"],
+      ["async/await","reads the slash naturally","'slash' spoken aloud"],
+      ["OpenAI / API","OpenAI, ei-pi-ai","一句乱码"],
+      ["latency","English word mid-sentence","skipped"],
+      ["P99 / 1.2 秒","pi jiǔ shí jiǔ, yī diǎn èr miǎo","P ninety-nine"],
+      ["Kubernetes","English, no stall","long pause before it"]
+    ]
+  },
+  {
+    id:"particles", label:"Neutral tone and particles",
+    zh:"他的东西放在桌子上了吧？你看看，是不是他的？别客气，坐坐嘛，喝点儿茶呀。",
+    focus:"Neutral-tone syllables (的/子/了/吧/嘛/呀) must be short, low-energy and unstressed, and 吧/呀 must carry question vs. coaxing intonation. Robotic engines give every syllable equal weight.",
+    listen:[
+      ["东西","dōng xi (neutral)","dōng xī"],
+      ["桌子上","zhuō zi shang","zhuō zǐ shàng"],
+      ["了吧？","rising, softened","flat statement"],
+      ["看看","kàn kan","kàn kàn"],
+      ["是不是","shì bu shì","shì bù shì"],
+      ["坐坐嘛","coaxing fall","clipped"]
+    ]
+  },
+  {
+    id:"prosody", label:"Long-form prosody and punctuation",
+    zh:"他停了一下，说：“我不是不想去——只是，现在还不行。”话音未落，门外忽然传来一阵急促的敲门声；屋里的人全都愣住了，谁也没有说话。",
+    focus:"Pause length should differ across 、，：；。—— and the quotation should shift register. Also tests whether breath and pitch reset at sentence boundaries or drift monotonically down.",
+    listen:[
+      ["，vs 。vs ；","distinct pause lengths","all identical"],
+      ["——","a held dash pause","ignored or read aloud"],
+      ["“…”","quoted speech re-voiced","same flat register"],
+      ["话音未落","new breath, reset pitch","continues the decay"],
+      ["谁也没有说话","natural closing fall","clipped ending"]
+    ]
+  },
+  {
+    id:"names", label:"Surnames and place names",
+    zh:"单于先生、区女士、解放路的仇老师和曾参教授，都在厦门、龟兹和六安开过会。",
+    focus:"Surnames take readings that differ from the everyday character, and several place names are irregular. This is where a pronunciation-lexicon gap shows up immediately.",
+    listen:[
+      ["单于","chán yú","dān yú"],
+      ["区女士","Ōu","qū"],
+      ["解放路","jiě fàng lù","xiè fàng lù"],
+      ["仇老师","Qiú","chóu"],
+      ["曾参","Zēng Shēn","céng cān"],
+      ["厦门","Xià mén","shà mén"],
+      ["龟兹","Qiū cí","guī zī"],
+      ["六安","Lù ān","liù ān"]
+    ]
+  },
+  {
+    id:"classic", label:"Literary / classical register",
+    zh:"落霞与孤鹜齐飞，秋水共长天一色。渔舟唱晚，响穷彭蠡之滨；雁阵惊寒，声断衡阳之浦。",
+    focus:"Four-character literary rhythm, classical readings, and whether the engine can slow down and shape phrases rather than sprinting through at news pace.",
+    listen:[
+      ["孤鹜","gū wù","gū wú"],
+      ["共长天一色","gòng cháng tiān","gòng zhǎng tiān"],
+      ["彭蠡","Péng Lǐ","péng lí"],
+      ["衡阳之浦","héng yáng zhī pǔ","… zhī bù"],
+      ["4-4 rhythm","paired, measured","flat prose pace"]
+    ]
+  },
+  {
+    id:"yue", label:"Cantonese (粤语)",
+    zh:"今日天氣幾好，我哋一齊去飲茶啦，唔該晒你。",
+    focus:"Only a few engines have real Cantonese. Pick a yue-HK / Cantonese voice first — a Mandarin voice will read these characters in Mandarin, which is instantly obvious.",
+    listen:[
+      ["我哋","ngo5 dei6","wǒ dì (Mandarin)"],
+      ["一齊","jat1 cai4","yī qí"],
+      ["飲茶","jam2 caa4","yǐn chá"],
+      ["唔該晒","m4 goi1 saai3","wú gāi shài"]
+    ]
+  }
+];
+
+/* ============================================================================
+   HELPERS
+   ========================================================================== */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const el = (t, props={}, kids=[]) => {
+  const n = document.createElement(t);
+  for (const [k,v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined) n.setAttribute(k, v);
+  }
+  for (const c of [].concat(kids)) if (c) n.append(c);
+  return n;
+};
+const b64ToBytes = b64 => { const s = atob(b64); const a = new Uint8Array(s.length);
+  for (let i=0;i<s.length;i++) a[i] = s.charCodeAt(i); return a; };
+const hexToBytes = hex => { const clean = hex.trim(); const a = new Uint8Array(clean.length>>1);
+  for (let i=0;i<a.length;i++) a[i] = parseInt(clean.substr(i*2,2),16); return a; };
+
+/* Gemini and some streaming APIs hand back headerless PCM; wrap it so <audio> can play it. */
+function pcmToWav(pcm, rate=24000, channels=1, bits=16){
+  const bytesPerSample = bits>>3;
+  const buf = new ArrayBuffer(44 + pcm.byteLength);
+  const v = new DataView(buf);
+  const str = (o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  str(0,"RIFF"); v.setUint32(4, 36+pcm.byteLength, true); str(8,"WAVE");
+  str(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true);
+  v.setUint16(22,channels,true); v.setUint32(24,rate,true);
+  v.setUint32(28, rate*channels*bytesPerSample, true);
+  v.setUint16(32, channels*bytesPerSample, true); v.setUint16(34, bits, true);
+  str(36,"data"); v.setUint32(40, pcm.byteLength, true);
+  new Uint8Array(buf, 44).set(pcm);
+  return new Blob([buf], {type:"audio/wav"});
+}
+
+/* Prefer decodeAudioData (exact); fall back to <audio> metadata for cross-origin URLs. */
+let _ac;
+async function measureDuration(blob, url){
+  if (blob) {
+    try {
+      _ac = _ac || new (window.AudioContext || window.webkitAudioContext)();
+      const buf = await _ac.decodeAudioData(await blob.arrayBuffer());
+      return buf.duration;
+    } catch (_) { /* fall through */ }
+  }
+  return await new Promise(res => {
+    const a = new Audio();
+    a.preload = "metadata";
+    a.onloadedmetadata = () => res(isFinite(a.duration) ? a.duration : null);
+    a.onerror = () => res(null);
+    a.src = url || URL.createObjectURL(blob);
+    setTimeout(()=>res(null), 8000);
+  });
+}
+
+/* Optional same-origin hop for endpoints that refuse to send CORS headers. */
+const px = u => state.proxy ? state.proxy + encodeURIComponent(u) : u;
+
+async function timedFetch(url, opts, mark){
+  const t0 = performance.now();
+  let res;
+  try {
+    res = await fetch(px(url), opts);
+  } catch (e) {
+    if (e instanceof TypeError)
+      throw new Error("Blocked before a reply arrived — almost always CORS. Set a proxy prefix at the top of " +
+        "the Providers tab, or check that the endpoint/region is reachable. (" + e.message + ")");
+    throw e;
+  }
+  mark(performance.now() - t0);          // headers received == server's first byte
+  return res;
+}
+async function bail(res){
+  let body = "";
+  try { body = (await res.text()).slice(0, 300); } catch(_){}
+  throw new Error("HTTP " + res.status + (body ? " — " + body : ""));
+}
+const fmtMs = n => n == null ? "—" : (n < 1000 ? Math.round(n)+" ms" : (n/1000).toFixed(2)+" s");
+const fmtS  = n => n == null ? "—" : n.toFixed(2)+" s";
+const fmtKB = n => n == null ? "—" : (n/1024 < 1000 ? Math.round(n/1024)+" KB" : (n/1048576).toFixed(1)+" MB");
+
+/* ============================================================================
+   PROVIDERS
+   Every engine here was verified to answer a CORS preflight from a browser
+   origin, which is what makes a backend-free page possible. `synth` returns
+   { blob } or { url }; `mark(ms)` is called the moment response headers land.
+   ========================================================================== */
+const XMLESC = s => s.replace(/[<>&'"]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
+
+const PROVIDERS = [
+{
+  id:"webspeech", name:"Browser (Web Speech API)", vendor:"Your OS", price:{unit:"chars", val:0},
+  note:"Free zero-latency baseline using the Mandarin voices installed on this machine. It cannot return a file, so only timings are measured — treat it as the floor everything else has to beat.",
+  docs:"https://developer.mozilla.org/docs/Web/API/SpeechSynthesis",
+  kind:"local",
+  fields:[
+    {k:"voice", label:"System voice", type:"voice", def:""},
+    {k:"rate",  label:"Rate", type:"number", def:1, step:0.1, min:0.5, max:2}
+  ],
+  listVoices: async () => {
+    const load = () => speechSynthesis.getVoices();
+    let v = load();
+    if (!v.length) await new Promise(r => { speechSynthesis.onvoiceschanged = r; setTimeout(r, 700); });
+    v = load();
+    return v.filter(x => /^(zh|cmn|yue)/i.test(x.lang))
+            .map(x => ({ id:x.voiceURI, label:x.name + " — " + x.lang }));
+  }
+},
+{
+  id:"azure", name:"Azure AI Speech", vendor:"Microsoft", price:{unit:"chars", val:16},
+  note:"The broadest zh catalogue anywhere: zh-CN / zh-HK / zh-TW plus regional Mandarin accents, speaking styles (newscast, cheerful, angry…), and SSML phoneme overrides — the only realistic option when you must force a specific reading of a polyphone.",
+  docs:"https://learn.microsoft.com/azure/ai-services/speech-service/rest-text-to-speech",
+  fields:[
+    {k:"key",    label:"Speech resource key", type:"password", ph:"32-char key"},
+    {k:"region", label:"Region", type:"text", def:"eastus", ph:"eastus, westeurope, southeastasia…"},
+    {k:"voice",  label:"Voice", type:"voice", def:"zh-CN-XiaoxiaoNeural"},
+    {k:"style",  label:"Speaking style (optional)", type:"text", ph:"newscast / cheerful / sad / serious"},
+    {k:"rate",   label:"Rate", type:"number", def:1, step:0.05, min:0.5, max:2}
+  ],
+  voiceFallback:[
+    "zh-CN-XiaoxiaoNeural","zh-CN-XiaoyiNeural","zh-CN-XiaochenNeural","zh-CN-XiaohanNeural",
+    "zh-CN-XiaomoNeural","zh-CN-XiaoxuanNeural","zh-CN-YunxiNeural","zh-CN-YunjianNeural",
+    "zh-CN-YunyangNeural","zh-CN-YunfengNeural","zh-CN-XiaoxiaoMultilingualNeural",
+    "zh-HK-HiuMaanNeural","zh-HK-WanLungNeural","zh-TW-HsiaoChenNeural","zh-TW-YunJheNeural"
+  ].map(id => ({id, label:id})),
+  listVoices: async cfg => {
+    const r = await fetch(px(`https://${cfg.region}.tts.speech.microsoft.com/cognitiveservices/voices/list`),
+      { headers:{ "Ocp-Apim-Subscription-Key": cfg.key } });
+    if (!r.ok) await bail(r);
+    return (await r.json())
+      .filter(v => /^(zh|yue)/i.test(v.Locale))
+      .map(v => ({ id:v.ShortName, label:`${v.ShortName} · ${v.LocaleName} · ${v.Gender}` }));
+  },
+  synth: async (cfg, text, mark) => {
+    const loc = (cfg.voice.match(/^[a-z]{2,3}-[A-Z]{2}/) || ["zh-CN"])[0];
+    let inner = `<prosody rate="${cfg.rate || 1}">${XMLESC(text)}</prosody>`;
+    if (cfg.style) inner = `<mstts:express-as style="${XMLESC(cfg.style)}">${inner}</mstts:express-as>`;
+    const ssml =
+      `<speak version="1.0" xmlns="http://www.w3.org/2001/10/Synthesis" ` +
+      `xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="${loc}">` +
+      `<voice name="${cfg.voice}">${inner}</voice></speak>`;
+    const r = await timedFetch(`https://${cfg.region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
+      method:"POST",
+      headers:{
+        "Ocp-Apim-Subscription-Key": cfg.key,
+        "Content-Type":"application/ssml+xml",
+        "X-Microsoft-OutputFormat":"audio-24khz-96kbitrate-mono-mp3"
+      },
+      body: ssml
+    }, mark);
+    if (!r.ok) await bail(r);
+    return { blob: new Blob([await r.arrayBuffer()], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"google", name:"Cloud Text-to-Speech", vendor:"Google", price:{unit:"chars", val:16},
+  note:"Chirp 3: HD is the current top tier (cmn-CN, cmn-TW, yue-HK); Neural2 and WaveNet are markedly cheaper and still solid. A plain API key works from the browser — restrict it to the Text-to-Speech API in the Cloud console.",
+  docs:"https://cloud.google.com/text-to-speech/docs/list-voices-and-types",
+  fields:[
+    {k:"key",   label:"API key", type:"password", ph:"AIza…"},
+    {k:"voice", label:"Voice", type:"voice", def:"cmn-CN-Chirp3-HD-Achernar"},
+    {k:"rate",  label:"Speaking rate", type:"number", def:1, step:0.05, min:0.25, max:4}
+  ],
+  voiceFallback:[
+    "cmn-CN-Chirp3-HD-Achernar","cmn-CN-Chirp3-HD-Kore","cmn-CN-Chirp3-HD-Puck",
+    "cmn-CN-Chirp3-HD-Zephyr","cmn-CN-Chirp3-HD-Charon","cmn-CN-Chirp3-HD-Aoede",
+    "cmn-CN-Wavenet-A","cmn-CN-Wavenet-B","cmn-CN-Wavenet-C","cmn-CN-Wavenet-D",
+    "cmn-CN-Standard-A","cmn-TW-Wavenet-A","yue-HK-Standard-A"
+  ].map(id => ({id, label:id})),
+  listVoices: async cfg => {
+    const r = await fetch(px(`https://texttospeech.googleapis.com/v1/voices?key=${encodeURIComponent(cfg.key)}`));
+    if (!r.ok) await bail(r);
+    return (await r.json()).voices
+      .filter(v => v.languageCodes.some(c => /^(cmn|yue|zh)/.test(c)))
+      .map(v => ({ id:v.name, label:`${v.name} · ${v.ssmlGender}` }));
+  },
+  synth: async (cfg, text, mark) => {
+    const lang = cfg.voice.split("-").slice(0,2).join("-") || "cmn-CN";
+    const audioConfig = { audioEncoding:"MP3" };
+    if (+cfg.rate && +cfg.rate !== 1) audioConfig.speakingRate = +cfg.rate;
+    const r = await timedFetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(cfg.key)}`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ input:{text}, voice:{languageCode:lang, name:cfg.voice}, audioConfig })
+    }, mark);
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    return { blob: new Blob([b64ToBytes(j.audioContent)], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"gemini", name:"Gemini TTS", vendor:"Google", price:{unit:"chars", val:10},
+  note:"Prompt-steerable: you describe the delivery in plain language instead of picking a style enum. Strong at expressive and conversational Mandarin. Returns headerless 24 kHz PCM, which this page wraps into WAV, so files are large.",
+  docs:"https://ai.google.dev/gemini-api/docs/speech-generation",
+  fields:[
+    {k:"key",   label:"Gemini API key", type:"password", ph:"AIza…"},
+    {k:"model", label:"Model", type:"select", def:"gemini-3.1-flash-tts-preview",
+      options:["gemini-3.1-flash-tts-preview","gemini-3.1-flash-tts","gemini-2.5-flash-preview-tts","gemini-2.5-pro-preview-tts"]},
+    {k:"voice", label:"Voice", type:"voice", def:"Kore"},
+    {k:"style", label:"Style prompt (optional)", type:"text",
+      ph:"用自然的普通话播报，语速适中", help:"Prepended as an instruction; it is not spoken."}
+  ],
+  voiceFallback:["Kore","Puck","Zephyr","Charon","Fenrir","Leda","Orus","Aoede","Achernar",
+    "Algieba","Despina","Enceladus","Iapetus","Umbriel","Sulafat","Vindemiatrix"].map(id=>({id,label:id})),
+  synth: async (cfg, text, mark) => {
+    const prompt = cfg.style ? `${cfg.style}：\n${text}` : text;
+    const r = await timedFetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "x-goog-api-key": cfg.key },
+      body: JSON.stringify({
+        contents:[{ parts:[{ text: prompt }] }],
+        generationConfig:{
+          responseModalities:["AUDIO"],
+          speechConfig:{ voiceConfig:{ prebuiltVoiceConfig:{ voiceName: cfg.voice } } }
+        }
+      })
+    }, mark);
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    const part = j?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (!part) throw new Error("No audio in response — " + JSON.stringify(j).slice(0,220));
+    const rate = +(part.inlineData.mimeType.match(/rate=(\d+)/)?.[1] || 24000);
+    return { blob: pcmToWav(b64ToBytes(part.inlineData.data), rate) };
+  }
+},
+{
+  id:"openai", name:"OpenAI Speech", vendor:"OpenAI", price:{unit:"minute", val:0.015},
+  note:"Cheapest per minute of the hosted options and steerable through free-text `instructions`. Mandarin is competent but the voices are English-first — listen specifically for foreign-accented tones and weak erhua. Note: this endpoint answers the CORS preflight but omits the CORS header on rejected requests, so a failure surfaces as an opaque browser block rather than a readable 401 — if it fails outright, route it through the proxy prefix above.",
+  docs:"https://platform.openai.com/docs/guides/text-to-speech",
+  fields:[
+    {k:"key",   label:"API key", type:"password", ph:"sk-…"},
+    {k:"model", label:"Model", type:"select", def:"gpt-4o-mini-tts",
+      options:["gpt-4o-mini-tts","tts-1-hd","tts-1"]},
+    {k:"voice", label:"Voice", type:"voice", def:"coral"},
+    {k:"instructions", label:"Instructions (gpt-4o-mini-tts only)", type:"text",
+      ph:"Speak as a native Mandarin newsreader, clear and unhurried."}
+  ],
+  voiceFallback:["alloy","ash","ballad","coral","echo","fable","nova","onyx","sage","shimmer","verse","marin","cedar"]
+    .map(id=>({id,label:id})),
+  synth: async (cfg, text, mark) => {
+    const body = { model:cfg.model, input:text, voice:cfg.voice, response_format:"mp3" };
+    if (cfg.instructions && cfg.model.startsWith("gpt-")) body.instructions = cfg.instructions;
+    const r = await timedFetch("https://api.openai.com/v1/audio/speech", {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    }, mark);
+    if (!r.ok) await bail(r);
+    return { blob: new Blob([await r.arrayBuffer()], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"elevenlabs", name:"ElevenLabs", vendor:"ElevenLabs", price:{unit:"chars", val:100},
+  note:"Best-in-class voice cloning and emotional range, and by far the most expensive per character. Chinese needs a multilingual model — eleven_monolingual / English-only models will read the characters as gibberish.",
+  docs:"https://elevenlabs.io/docs/api-reference/text-to-speech/convert",
+  fields:[
+    {k:"key",   label:"API key", type:"password", ph:"sk_…"},
+    {k:"model", label:"Model", type:"select", def:"eleven_multilingual_v2",
+      options:["eleven_multilingual_v2","eleven_v3","eleven_flash_v2_5","eleven_turbo_v2_5"]},
+    {k:"voice", label:"Voice ID", type:"voice", def:"", ph:"Load voices, or paste a voice_id"},
+    {k:"stability", label:"Stability", type:"number", def:0.5, step:0.05, min:0, max:1},
+    {k:"similarity", label:"Similarity boost", type:"number", def:0.75, step:0.05, min:0, max:1}
+  ],
+  listVoices: async cfg => {
+    const r = await fetch(px("https://api.elevenlabs.io/v1/voices"), { headers:{ "xi-api-key": cfg.key } });
+    if (!r.ok) await bail(r);
+    return (await r.json()).voices.map(v => ({
+      id: v.voice_id,
+      label: `${v.name}${v.labels?.accent ? " · " + v.labels.accent : ""}${v.category ? " · " + v.category : ""}`
+    }));
+  },
+  synth: async (cfg, text, mark) => {
+    if (!cfg.voice) throw new Error("Pick a voice — click “Load voices” to pull the ones on your account.");
+    const r = await timedFetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(cfg.voice)}?output_format=mp3_44100_128`, {
+      method:"POST",
+      headers:{ "xi-api-key":cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify({
+        text, model_id: cfg.model,
+        voice_settings:{ stability:+cfg.stability, similarity_boost:+cfg.similarity }
+      })
+    }, mark);
+    if (!r.ok) await bail(r);
+    return { blob: new Blob([await r.arrayBuffer()], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"minimax", name:"MiniMax Speech", vendor:"MiniMax (稀宇)", price:{unit:"chars", val:50},
+  note:"A Chinese lab training on Chinese-first data, and it shows: tone sandhi, erhua and polyphone disambiguation are usually the most reliable in this list. Needs an API key; older JWT-style keys also need the GroupId from your account page.",
+  docs:"https://platform.minimax.io/document/T2A%20V2",
+  fields:[
+    {k:"key",     label:"API key", type:"password", ph:"sk-cp-… or eyJ… (JWT)"},
+    {k:"groupId", label:"GroupId (older JWT keys only)", type:"text", ph:"leave empty for sk-cp-… keys",
+      help:"Account → Your Profile. Newer sk-cp- keys authenticate with the key alone."},
+    {k:"host",    label:"Endpoint", type:"select", def:"api.minimax.io",
+      options:["api.minimax.io","api.minimaxi.com"], help:"minimaxi.com is the mainland-China platform."},
+    {k:"model",   label:"Model", type:"select", def:"speech-02-hd",
+      options:["speech-02-hd","speech-02-turbo","speech-2.5-hd-preview","speech-2.5-turbo-preview","speech-01-hd"]},
+    {k:"voice",   label:"voice_id", type:"voice", def:"female-shaonv"},
+    {k:"emotion", label:"Emotion (optional)", type:"select", def:"",
+      options:["","happy","sad","angry","fearful","disgusted","surprised","neutral"]},
+    {k:"speed",   label:"Speed", type:"number", def:1, step:0.05, min:0.5, max:2}
+  ],
+  voiceFallback:[
+    "female-shaonv","female-yujie","female-chengshu","female-tianmei",
+    "male-qn-qingse","male-qn-jingying","male-qn-badao","male-qn-daxuesheng",
+    "presenter_male","presenter_female","audiobook_male_1","audiobook_female_1",
+    "Chinese (Mandarin)_News_Anchor","Chinese (Mandarin)_Warm_Bestie","Chinese (Mandarin)_Gentleman"
+  ].map(id=>({id,label:id})),
+  listVoices: async cfg => {
+    const qs = cfg.groupId ? `?GroupId=${encodeURIComponent(cfg.groupId)}` : "";
+    const r = await fetch(px(`https://${cfg.host}/v1/get_voice${qs}`), {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify({ voice_type:"all" })
+    });
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    const out = [];
+    for (const k of ["system_voice","voice_cloning","voice_generation"])
+      for (const v of (j[k] || []))
+        out.push({ id: v.voice_id, label: (v.voice_name || v.voice_id) + " · " + k.replace("_"," ") });
+    if (!out.length) throw new Error("Empty voice list — " + JSON.stringify(j).slice(0,200));
+    return out;
+  },
+  synth: async (cfg, text, mark) => {
+    const vs = { voice_id:cfg.voice, speed:+cfg.speed || 1, vol:1, pitch:0 };
+    if (cfg.emotion) vs.emotion = cfg.emotion;
+    const qs = cfg.groupId ? `?GroupId=${encodeURIComponent(cfg.groupId)}` : "";
+    const r = await timedFetch(`https://${cfg.host}/v1/t2a_v2${qs}`, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify({
+        model: cfg.model, text, stream:false, output_format:"hex",
+        language_boost:"Chinese",
+        voice_setting: vs,
+        audio_setting:{ sample_rate:32000, bitrate:128000, format:"mp3", channel:1 }
+      })
+    }, mark);
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    if (j.base_resp && j.base_resp.status_code !== 0)
+      throw new Error(`MiniMax ${j.base_resp.status_code}: ${j.base_resp.status_msg}`);
+    const hex = j?.data?.audio;
+    if (!hex) throw new Error("No audio — " + JSON.stringify(j).slice(0,220));
+    return { blob: new Blob([hexToBytes(hex)], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"qwen", name:"Qwen3-TTS", vendor:"Alibaba Model Studio", price:{unit:"chars", val:8},
+  note:"The dialect specialist and the cheapest credible engine here — ships Beijing, Sichuan, Shanghai, Cantonese and Minnan voices alongside standard Mandarin, at roughly 300 ms first-packet latency. Returns a signed URL rather than bytes.",
+  docs:"https://www.alibabacloud.com/help/en/model-studio/qwen-tts",
+  fields:[
+    {k:"key",  label:"DashScope API key", type:"password", ph:"sk-…"},
+    {k:"host", label:"Endpoint", type:"select", def:"dashscope-intl.aliyuncs.com",
+      options:["dashscope-intl.aliyuncs.com","dashscope.aliyuncs.com"],
+      help:"-intl is Singapore; the bare host is Beijing. Keys are not shared between them."},
+    {k:"model", label:"Model", type:"select", def:"qwen3-tts-flash",
+      options:["qwen3-tts-flash","qwen3-tts-instruct-flash","qwen-tts-latest"]},
+    {k:"voice", label:"Voice", type:"voice", def:"Cherry"},
+    {k:"lang",  label:"Language hint", type:"select", def:"",
+      options:["","Chinese","Cantonese","Auto"]}
+  ],
+  voiceFallback:[
+    ["Cherry","标准普通话 · female"],["Serena","标准普通话 · female"],["Chelsie","标准普通话 · female"],
+    ["Ethan","标准普通话 · male"],["Nofish","不卷舌 · male"],["Li","female"],["Marcus","male"],
+    ["Dylan","北京话 Beijing"],["Sunny","四川话 Sichuan"],["Jada","上海话 Shanghai"],
+    ["Rocky","粤语 Cantonese"],["Roy","闽南语 Minnan"],["Peter","male"],["Eric","male"],["Kiki","female"]
+  ].map(([id,label])=>({id, label:`${id} — ${label}`})),
+  synth: async (cfg, text, mark) => {
+    const input = { text, voice: cfg.voice };
+    if (cfg.lang) input.language_type = cfg.lang;
+    const r = await timedFetch(
+      `https://${cfg.host}/api/v1/services/aigc/multimodal-generation/generation`, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify({ model: cfg.model, input })
+    }, mark);
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    const a = j?.output?.audio;
+    if (a?.url) {
+      // The signed OSS URL is not CORS-readable; fall back to streaming it into <audio>.
+      try {
+        const f = await fetch(a.url);
+        if (f.ok) return { blob: new Blob([await f.arrayBuffer()], {type:"audio/wav"}) };
+      } catch(_) {}
+      return { url: a.url };
+    }
+    if (a?.data) return { blob: pcmToWav(b64ToBytes(a.data), 24000) };
+    throw new Error("No audio — " + JSON.stringify(j).slice(0,220));
+  }
+},
+{
+  id:"cartesia", name:"Cartesia Sonic", vendor:"Cartesia", price:{unit:"chars", val:45},
+  note:"Built for sub-100 ms streaming voice agents and currently at the top of the Artificial Analysis speech arenas. Chinese is one of 40+ supported languages rather than a first-class focus — worth checking tone accuracy carefully.",
+  docs:"https://docs.cartesia.ai/api-reference/tts/bytes",
+  fields:[
+    {k:"key",   label:"API key", type:"password", ph:"sk_car_…"},
+    {k:"model", label:"Model", type:"select", def:"sonic-3.6",
+      options:["sonic-3.6","sonic-3.5","sonic-3","sonic-latest"]},
+    {k:"voice", label:"Voice ID", type:"voice", def:"", ph:"Load voices, or paste a voice id"},
+    {k:"lang",  label:"Language", type:"select", def:"zh", options:["zh","yue","en"]},
+    {k:"ver",   label:"Cartesia-Version", type:"text", def:"2026-08-14"}
+  ],
+  listVoices: async cfg => {
+    const r = await fetch(px("https://api.cartesia.ai/voices/?limit=100"), {
+      headers:{ "Authorization":"Bearer "+cfg.key, "Cartesia-Version":cfg.ver }
+    });
+    if (!r.ok) await bail(r);
+    const j = await r.json();
+    const all = (j.data || j).map(v => ({ id:v.id, label:`${v.name} · ${v.language || "?"}`, lang:v.language }));
+    const zh = all.filter(v => /^(zh|yue|cmn)/i.test(v.lang || ""));
+    return zh.length ? zh : all;
+  },
+  synth: async (cfg, text, mark) => {
+    if (!cfg.voice) throw new Error("Pick a voice — click “Load voices” first.");
+    const r = await timedFetch("https://api.cartesia.ai/tts/bytes", {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cfg.key, "Content-Type":"application/json",
+                "Cartesia-Version": cfg.ver },
+      body: JSON.stringify({
+        model_id: cfg.model, transcript: text, voice: cfg.voice, language: cfg.lang,
+        output_format:{ container:"mp3", sample_rate:44100, bit_rate:128000 }
+      })
+    }, mark);
+    if (!r.ok) await bail(r);
+    return { blob: new Blob([await r.arrayBuffer()], {type:"audio/mpeg"}) };
+  }
+},
+{
+  id:"openrouter", name:"OpenRouter", vendor:"aggregator", price:{unit:"chars", val:15},
+  note:"One key, many engines — including MiniMax, Qwen and Fish Audio, so it is the fastest way to hear the Chinese-first engines without opening three vendor accounts. Billing is prepaid credit on OpenRouter rather than per-vendor. Click Load to pull the live model list with current per-model prices; the cost column then uses the rate for whichever model you routed to.",
+  docs:"https://openrouter.ai/docs/guides/overview/multimodal/tts",
+  fields:[
+    {k:"key",   label:"API key", type:"password", ph:"sk-or-v1-…"},
+    {k:"model", label:"Model", type:"voice", def:"minimax/speech-2.8-hd", ph:"…or paste a model id",
+      load: async () => {
+        const r = await fetch(px("https://openrouter.ai/api/v1/models?output_modalities=speech"));
+        if (!r.ok) await bail(r);
+        const rates = {};
+        const list = ((await r.json()).data || []).map(m => {
+          const per1m = (parseFloat(m.pricing && m.pricing.prompt) || 0) * 1e6;
+          rates[m.id] = per1m;
+          return { id:m.id, label:`${m.name || m.id} — ${per1m ? "$" + per1m.toFixed(0) + "/1M chars" : "free"}` };
+        }).sort((a,b) => a.id.localeCompare(b.id));
+        state.orRates = rates; save();
+        return list;
+      }},
+    {k:"voice", label:"Voice (engine-specific)", type:"text",
+      ph:"female-shaonv (MiniMax) · Cherry (Qwen) · coral (OpenAI)",
+      help:"OpenRouter passes this straight through, so the valid values are whatever the underlying engine accepts. Leave empty for that engine's default."},
+    {k:"speed", label:"Speed", type:"number", def:1, step:0.05, min:0.5, max:2}
+  ],
+  voiceFallback:[
+    ["minimax/speech-2.8-hd","MiniMax Speech 2.8 HD — $100/1M"],
+    ["minimax/speech-2.8-turbo","MiniMax Speech 2.8 Turbo — $60/1M"],
+    ["qwen/qwen-audio-3.0-tts-flash","Qwen-Audio-3.0-TTS Flash — $15/1M"],
+    ["qwen/qwen-audio-3.0-tts-plus","Qwen-Audio-3.0-TTS Plus — $20/1M"],
+    ["fish-audio/s2.1-pro-free:free","Fish Audio S2.1 Pro — free"],
+    ["fish-audio/s2-pro","Fish Audio S2 Pro — $15/1M"],
+    ["fish-audio/s1","Fish Audio S1 — $15/1M"],
+    ["google/gemini-3.1-flash-tts-preview","Gemini 3.1 Flash TTS — token-priced"],
+    ["microsoft/mai-voice-2","Microsoft MAI-Voice-2"],
+    ["microsoft/mai-voice-2-flash","Microsoft MAI-Voice-2-Flash"],
+    ["x-ai/grok-voice-tts-1.0","Grok Voice TTS 1.0"],
+    ["mistralai/voxtral-mini-tts-2603","Mistral Voxtral Mini TTS — $16/1M"],
+    ["hexgrad/kokoro-82m","Kokoro 82M — $4/1M"],
+    ["deepgram/flux-tts:free","Deepgram Flux TTS — free"],
+    ["deepgram/aura-2","Deepgram Aura-2"]
+  ].map(([id,label]) => ({id, label})),
+  rateFor: cfg => (state.orRates || {})[cfg.model],
+  synth: async (cfg, text, mark) => {
+    const body = { model: cfg.model, input: text, response_format: "mp3" };
+    if (cfg.voice) body.voice = cfg.voice;
+    if (+cfg.speed && +cfg.speed !== 1) body.speed = +cfg.speed;
+    const r = await timedFetch("https://openrouter.ai/api/v1/audio/speech", {
+      method:"POST",
+      headers:{ "Authorization":"Bearer " + cfg.key, "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    }, mark);
+    if (!r.ok) await bail(r);
+    return { blob: new Blob([await r.arrayBuffer()], {type:"audio/mpeg"}) };
+  }
+}
+];
+const BY_ID = Object.fromEntries(PROVIDERS.map(p => [p.id, p]));
+
+const CRITERIA = [
+  ["tone",   "Tone accuracy 声调", "Are the four tones and the sandhi rules right?"],
+  ["pron",   "Pronunciation 读音", "Polyphones, names, numbers, erhua — correct readings?"],
+  ["prosody","Prosody 韵律",       "Pausing, phrasing, emphasis, breath."],
+  ["natural","Naturalness 自然度",  "Would you mistake it for a person?"]
+];
+
+/* ============================================================================
+   STATE  (localStorage; keys never leave this machine except to each vendor)
+   ========================================================================== */
+const KEY = "chinese-tts-bench.v1";
+const state = Object.assign(
+  { cfg:{}, enabled:{ webspeech:true }, price:{}, board:[], sentence:"torture", theme:"dark" },
+  JSON.parse(localStorage.getItem(KEY) || "{}")
+);
+const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+function cfgOf(p){
+  const c = Object.assign({}, state.cfg[p.id]);
+  for (const f of p.fields) if (c[f.k] === undefined || c[f.k] === "") c[f.k] = f.def ?? "";
+  return c;
+}
+const priceOf = p => state.price[p.id] ?? p.price.val;
+
+/* ============================================================================
+   TABS + THEME
+   ========================================================================== */
+$$(".tab").forEach(t => t.addEventListener("click", () => {
+  $$(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+  $$(".panel").forEach(x => x.classList.toggle("on", x.id === "p-" + t.dataset.panel));
+  if (t.dataset.panel === "board") renderBoard();
+}));
+function applyTheme(){
+  document.documentElement.dataset.theme = state.theme;
+  $("#themeBtn").textContent = state.theme === "dark" ? "Light" : "Dark";
+}
+$("#themeBtn").addEventListener("click", () => { state.theme = state.theme === "dark" ? "light" : "dark"; save(); applyTheme(); });
+applyTheme();
+
+/* ============================================================================
+   SENTENCE PICKER
+   ========================================================================== */
+function renderChips(){
+  const box = $("#chips"); box.textContent = "";
+  for (const s of SENTENCES){
+    box.append(el("button", {
+      class:"chip", "aria-pressed": String(state.sentence === s.id), text:s.label,
+      onclick(){ state.sentence = s.id; save(); loadSentence(s); renderChips(); }
+    }));
+  }
+  box.append(el("button", {
+    class:"chip", "aria-pressed": String(state.sentence === "custom"), text:"✎ Your own text",
+    onclick(){ state.sentence = "custom"; save(); $("#listenPanel").classList.add("hide");
+               $("#text").focus(); renderChips(); }
+  }));
+}
+function loadSentence(s){
+  $("#text").value = s.zh;
+  updateChars();
+  const p = $("#listenPanel");
+  p.classList.remove("hide");
+  p.textContent = "";
+  p.append(el("div", { class:"note", style:"margin-bottom:8px", html:"<b>Why this sentence:</b> " + s.focus }));
+  const tbl = el("table");
+  tbl.append(el("tr", {}, [
+    el("td", { html:"<span class='note'>token</span>" }),
+    el("td", { html:"<span class='note'>correct</span>" }),
+    el("td", { html:"<span class='note'>common failure</span>" })
+  ]));
+  for (const [tok, good, bad] of s.listen){
+    tbl.append(el("tr", {}, [
+      el("td", { text:tok }),
+      el("td", { class:"ok", text:good }),
+      el("td", { class:"bad", text:bad })
+    ]));
+  }
+  p.append(tbl);
+}
+function updateChars(){
+  const n = $("#text").value.length;
+  $("#charCount").textContent = n + " character" + (n===1?"":"s");
+}
+$("#text").addEventListener("input", () => { updateChars(); if (state.sentence !== "custom"){ state.sentence = "custom"; save(); renderChips(); $("#listenPanel").classList.add("hide"); } });
+
+/* ============================================================================
+   PROVIDER CARDS
+   ========================================================================== */
+function renderProviders(){
+  const host = $("#providerList"); host.textContent = "";
+  for (const p of PROVIDERS){
+    const on = !!state.enabled[p.id];
+    const card = el("div", { class:"pcard" + (on ? "" : " off") });
+    const sw = el("label", { class:"sw" }, [
+      el("input", { type:"checkbox", ...(on ? {checked:""} : {}),
+        onchange(e){ state.enabled[p.id] = e.target.checked; save(); renderProviders(); updateEnabled(); } }),
+      el("span")
+    ]);
+    card.append(el("div", { class:"phead" }, [
+      sw,
+      el("h2", { text:p.name }),
+      el("span", { class:"badge", text:p.vendor }),
+      p.kind === "local" ? el("span", { class:"badge nokey", text:"no key needed" })
+                         : el("span", { class:"badge cors", text:"browser-callable" }),
+      el("a", { href:p.docs, target:"_blank", rel:"noreferrer", class:"note", text:"docs ↗" })
+    ]));
+    card.append(el("div", { class:"note", style:"margin-bottom:11px", text:p.note }));
+
+    const grid = el("div", { class:"grid g3" });
+    for (const f of p.fields) grid.append(fieldEl(p, f));
+    grid.append(priceEl(p));
+    card.append(grid);
+    host.append(card);
+  }
+  updateEnabled();
+}
+
+function fieldEl(p, f){
+  const cfg = cfgOf(p);
+  const wrap = el("div");
+  const lab = el("label", { text:f.label });
+  wrap.append(lab);
+  const set = v => { (state.cfg[p.id] = state.cfg[p.id] || {})[f.k] = v; save(); };
+
+  if (f.type === "select"){
+    const s = el("select", { onchange:e => set(e.target.value) });
+    for (const o of f.options)
+      s.append(el("option", { value:o, text:o === "" ? "(default)" : o, ...(cfg[f.k]===o?{selected:""}:{}) }));
+    wrap.append(s);
+  } else if (f.type === "voice"){
+    const row = el("div", { style:"display:flex; gap:6px" });
+    const s = el("select", { onchange:e => set(e.target.value) });
+    const opts = (state.cfg[p.id]?.["__voices_"+f.k]) || p.voiceFallback || [];
+    const seen = new Set();
+    for (const o of opts){ if (seen.has(o.id)) continue; seen.add(o.id);
+      s.append(el("option", { value:o.id, text:o.label, ...(cfg[f.k]===o.id?{selected:""}:{}) })); }
+    if (cfg[f.k] && !seen.has(cfg[f.k]))
+      s.prepend(el("option", { value:cfg[f.k], text:cfg[f.k] + " (custom)", selected:"" }));
+    if (!s.options.length) s.append(el("option", { value:"", text:"— load or type a voice —" }));
+    row.append(s);
+    const loader = f.load || p.listVoices;
+    if (loader){
+      row.append(el("button", { class:"btn ghost sm", style:"flex:none", text:"Load",
+        async onclick(e){
+          const b = e.target; const old = b.textContent; b.textContent = "…"; b.disabled = true;
+          try {
+            const vs = await loader(cfgOf(p));
+            (state.cfg[p.id] = state.cfg[p.id] || {})["__voices_"+f.k] = vs;
+            save(); renderProviders();
+          } catch(err){ alert(p.name + " list failed:\n\n" + err.message); b.textContent = old; b.disabled = false; }
+        } }));
+    }
+    wrap.append(row);
+    wrap.append(el("input", { type:"text", style:"margin-top:5px", placeholder: f.ph || "…or paste an id",
+      value: cfg[f.k] || "", oninput:e => set(e.target.value.trim()) }));
+  } else if (f.type === "number"){
+    wrap.append(el("input", { type:"number", value:cfg[f.k], step:f.step ?? 1, min:f.min, max:f.max,
+      oninput:e => set(e.target.value) }));
+  } else {
+    wrap.append(el("input", { type:f.type === "password" ? "password" : "text",
+      value:cfg[f.k] || "", placeholder:f.ph || "",
+      autocomplete:"off", spellcheck:"false", oninput:e => set(e.target.value.trim()) }));
+  }
+  if (f.help) wrap.append(el("div", { class:"note", style:"margin-top:4px; font-size:11px", text:f.help }));
+  return wrap;
+}
+
+function priceEl(p){
+  const wrap = el("div");
+  wrap.append(el("label", { text: p.price.unit === "minute" ? "Rate — USD per audio minute" : "Rate — USD per 1M chars" }));
+  wrap.append(el("input", { type:"number", step:"0.001", value: priceOf(p),
+    oninput:e => { state.price[p.id] = parseFloat(e.target.value) || 0; save(); } }));
+  wrap.append(el("div", { class:"note", style:"margin-top:4px; font-size:11px",
+    text:"Public list price at time of writing — verify against your own plan." }));
+  return wrap;
+}
+
+function updateEnabled(){
+  const n = PROVIDERS.filter(p => state.enabled[p.id]).length;
+  $("#enabledCount").textContent = n + " engine" + (n===1?"":"s") + " enabled";
+  $("#runBtn").disabled = n === 0;
+}
+$("#proxyInput").value = state.proxy || "";
+$("#proxyInput").addEventListener("input", e => { state.proxy = e.target.value.trim(); save(); });
+$("#forgetBtn").addEventListener("click", () => {
+  if (!confirm("Erase every stored API key, id and setting from this browser?")) return;
+  state.cfg = {}; save(); renderProviders();
+});
+
+/* ============================================================================
+   RUN
+   ========================================================================== */
+let RESULTS = [];
+let REVEAL = false;
+
+function runLocal(p, cfg, text){
+  return new Promise((resolve, reject) => {
+    const u = new SpeechSynthesisUtterance(text);
+    const v = speechSynthesis.getVoices().find(x => x.voiceURI === cfg.voice);
+    if (v) u.voice = v;
+    u.lang = v ? v.lang : "zh-CN";
+    u.rate = +cfg.rate || 1;
+    const t0 = performance.now(); let ttfb = null;
+    u.onstart = () => { ttfb = performance.now() - t0; };
+    u.onend   = () => { const total = performance.now() - t0;
+      resolve({ ttfb, total, duration: Math.max(0, (total - (ttfb ?? 0)) / 1000), local:true }); };
+    u.onerror = e => reject(new Error(e.error || "speechSynthesis error"));
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  });
+}
+
+async function runOne(p, text){
+  const cfg = cfgOf(p);
+  const row = {
+    pid:p.id, name:p.name, model: cfg.model || "—", voice: cfg.voice || "—",
+    chars: text.length, status:"running"
+  };
+  RESULTS.push(row); renderResults();
+  try {
+    if (p.kind === "local"){
+      const r = await runLocal(p, cfg, text);
+      Object.assign(row, r, { status:"ok", bytes:null, playable:false });
+    } else {
+      let ttfb = null;
+      const t0 = performance.now();
+      const out = await p.synth(cfg, text, ms => { ttfb = ms; });
+      const total = performance.now() - t0;
+      const url = out.url || URL.createObjectURL(out.blob);
+      const duration = await measureDuration(out.blob, out.url);
+      Object.assign(row, {
+        status:"ok", ttfb, total, duration, url, blob: out.blob || null,
+        bytes: out.blob ? out.blob.size : null, playable:true
+      });
+    }
+    const rate = p.rateFor ? (p.rateFor(cfg) ?? priceOf(p)) : priceOf(p);
+    row.cost = p.price.unit === "minute"
+      ? (row.duration ? (row.duration / 60) * rate : null)
+      : (row.chars / 1e6) * rate;
+  } catch(err){
+    row.status = "error";
+    row.error = err.message || String(err);
+  }
+  renderResults(); renderScoring();
+}
+
+$("#runBtn").addEventListener("click", async () => {
+  const text = $("#text").value.trim();
+  if (!text) return alert("Enter some text first.");
+  const list = PROVIDERS.filter(p => state.enabled[p.id]);
+  RESULTS = []; REVEAL = false;
+  $("#resCard").style.display = "block";
+  $("#runBtn").disabled = true;
+  const seq = $("#seq")?.checked;
+  try {
+    if (seq) { for (const p of list) await runOne(p, text); }
+    else {
+      // The browser speech engine blocks on playback, so never race it against the rest.
+      const local = list.filter(p => p.kind === "local");
+      await Promise.all(list.filter(p => p.kind !== "local").map(p => runOne(p, text)));
+      for (const p of local) await runOne(p, text);
+    }
+  } finally { $("#runBtn").disabled = false; updateEnabled(); }
+});
+
+$("#clearBtn").addEventListener("click", () => {
+  RESULTS.forEach(r => r.url && r.blob && URL.revokeObjectURL(r.url));
+  RESULTS = []; $("#resCard").style.display = "none"; $("#scoreCard").style.display = "none";
+});
+$("#playAllBtn").addEventListener("click", async () => {
+  for (const r of RESULTS.filter(r => r.status === "ok" && r.playable)){
+    const a = new Audio(r.url);
+    await new Promise(res => { a.onended = res; a.onerror = res; a.play().catch(res); });
+    await new Promise(res => setTimeout(res, 350));
+  }
+});
+$("#blind").addEventListener("change", () => { REVEAL = false; renderResults(); renderScoring(); });
+$("#revealBtn").addEventListener("click", () => { REVEAL = !REVEAL; renderResults(); renderScoring(); });
+
+const masked = r => ($("#blind").checked && !REVEAL);
+const labelOf = (r, i) => masked(r) ? "Sample " + String.fromCharCode(65 + i) : r.name;
+const metaOf  = r => [r.model, r.voice].filter(v => v && v !== "—").join(" · ") || "—";
+
+/* ============================================================================
+   RESULTS TABLE
+   ========================================================================== */
+function renderResults(){
+  const t = $("#resTable"); t.textContent = "";
+  const head = el("tr");
+  ["Engine","Model / voice","TTFB","Total","Audio","RTF","Est. cost","Size","Listen"]
+    .forEach((h,i) => head.append(el("th", { class: i>=2 && i<=7 ? "num" : "", text:h })));
+  t.append(el("thead", {}, head));
+  const body = el("tbody");
+  const maxTotal = Math.max(...RESULTS.filter(r => r.total).map(r => r.total), 1);
+
+  RESULTS.forEach((r, i) => {
+    const tr = el("tr");
+    tr.append(el("td", {}, [
+      el("div", { class:"pname", text: labelOf(r, i) }),
+      r.status === "running" ? el("div", { class:"pmeta", text:"synthesizing…" }) : null
+    ]));
+    tr.append(el("td", { class:"pmeta", text: masked(r) ? "hidden" : metaOf(r) }));
+
+    if (r.status === "error"){
+      tr.append(el("td", { colspan:"7" }, [
+        el("span", { class:"status" }, [
+          el("i", { class:"dot", style:"background:var(--crit)" }),
+          el("span", { class:"err", text:r.error })
+        ])
+      ]));
+      body.append(tr); return;
+    }
+    if (r.status === "running"){
+      tr.append(el("td", { colspan:"7", class:"pmeta", text:"…" }));
+      body.append(tr); return;
+    }
+
+    tr.append(el("td", { class:"num", text: fmtMs(r.ttfb) }));
+    const bar = el("td", { class:"num" }, [
+      el("div", { style:"display:flex;align-items:center;gap:8px;justify-content:flex-end" }, [
+        el("span", { text: fmtMs(r.total) }),
+        el("div", { class:"barwrap" }, el("div", { class:"bar",
+          style:`width:${Math.max(2, (r.total / maxTotal) * 100)}%` }))
+      ])
+    ]);
+    tr.append(bar);
+    tr.append(el("td", { class:"num", text: fmtS(r.duration) }));
+    tr.append(el("td", { class:"num", text: r.duration && r.total ? (r.duration / (r.total/1000)).toFixed(1) + "×" : "—" }));
+    tr.append(el("td", { class:"num", text: r.cost == null ? "—" : (r.cost === 0 ? "free" : "$" + r.cost.toFixed(4)) }));
+    tr.append(el("td", { class:"num", text: fmtKB(r.bytes) }));
+
+    const cell = el("td");
+    if (r.playable){
+      cell.append(el("audio", { controls:"", src:r.url, preload:"none" }));
+      if (r.blob) cell.append(el("a", { href:r.url, download:`${r.pid}-${state.sentence}.mp3`,
+        class:"note", style:"margin-left:8px", text:"save" }));
+    } else {
+      cell.append(el("span", { class:"pmeta", text:"played live — no file" }));
+    }
+    tr.append(cell);
+    body.append(tr);
+  });
+  t.append(body);
+}
+
+/* ============================================================================
+   SCORING
+   ========================================================================== */
+const scratch = {};   // pid -> {tone,pron,prosody,natural,notes}
+function renderScoring(){
+  const ok = RESULTS.filter(r => r.status === "ok");
+  $("#scoreCard").style.display = ok.length ? "block" : "none";
+  $("#revealBtn").style.display = $("#blind").checked ? "" : "none";
+  $("#revealBtn").textContent = REVEAL ? "Hide names" : "Reveal names";
+  const host = $("#scoreList"); host.textContent = "";
+  const s = SENTENCES.find(x => x.id === state.sentence);
+
+  ok.forEach((r, i) => {
+    const card = el("div", { class:"scard" });
+    const sc = scratch[r.pid] = scratch[r.pid] || {};
+    card.append(el("div", { style:"display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap" }, [
+      el("h2", { text: labelOf(r, i) }),
+      masked(r) ? null : el("span", { class:"badge id", text: metaOf(r) }),
+      el("div", { class:"spacer", style:"flex:1" }),
+      r.playable ? el("audio", { controls:"", src:r.url, preload:"none" })
+                 : el("span", { class:"pmeta", text:"browser voice — replay with Run" })
+    ]));
+    for (const [k, title, hint] of CRITERIA){
+      const stars = el("div", { class:"stars" });
+      for (let v = 1; v <= 5; v++){
+        stars.append(el("button", { class:"star", text:String(v), "aria-pressed":String(sc[k] === v),
+          title:hint, onclick(){ sc[k] = sc[k] === v ? undefined : v; renderScoring(); } }));
+      }
+      card.append(el("div", { class:"crit" }, [ el("span", { text:title, title:hint }), stars ]));
+    }
+    card.append(el("textarea", { rows:"2", placeholder:"Notes — which token did it get wrong?",
+      style:"margin-top:8px", value:sc.notes || "", oninput:e => { sc.notes = e.target.value; } }));
+    host.append(card);
+  });
+
+  if (ok.length && s && s.listen){
+    host.append(el("div", { class:"note", style:"margin-top:4px",
+      html:"<b>Checklist for this sentence:</b> " +
+        s.listen.map(l => `<code>${l[0]}</code> → ${l[1]}`).join(" · ") }));
+  }
+}
+
+$("#saveScoresBtn").addEventListener("click", () => {
+  const ok = RESULTS.filter(r => r.status === "ok");
+  let n = 0;
+  for (const r of ok){
+    const sc = scratch[r.pid] || {};
+    if (!CRITERIA.some(([k]) => sc[k])) continue;
+    state.board.push({
+      ts: Date.now(), sentence: state.sentence, pid: r.pid, name: r.name,
+      model: r.model, voice: r.voice,
+      scores: Object.fromEntries(CRITERIA.map(([k]) => [k, sc[k] ?? null])),
+      notes: sc.notes || "", ttfb: r.ttfb, total: r.total, duration: r.duration, cost: r.cost
+    });
+    n++;
+  }
+  save();
+  alert(n ? `Saved ${n} scored sample${n===1?"":"s"} to the leaderboard.` : "Score at least one criterion first.");
+  for (const k in scratch) delete scratch[k];
+  renderScoring();
+});
+
+/* ============================================================================
+   LEADERBOARD
+   ========================================================================== */
+function renderBoard(){
+  const host = $("#boardBody"); host.textContent = "";
+  if (!state.board.length){
+    host.append(el("div", { class:"note", text:"No scores yet. Run a bench, rate the samples, then click “Save scores to leaderboard”." }));
+    return;
+  }
+  const agg = {};
+  for (const e of state.board){
+    const key = e.pid + "|" + e.model;
+    const a = agg[key] = agg[key] || { name:e.name, model:e.model, n:0, sums:{}, counts:{}, lat:[], cost:[] };
+    a.n++;
+    for (const [k] of CRITERIA) if (e.scores[k]){ a.sums[k] = (a.sums[k]||0) + e.scores[k]; a.counts[k] = (a.counts[k]||0)+1; }
+    if (e.total) a.lat.push(e.total);
+    if (e.cost != null) a.cost.push(e.cost);
+  }
+  const rows = Object.values(agg).map(a => {
+    const per = {}; let sum = 0, cnt = 0;
+    for (const [k] of CRITERIA){ if (a.counts[k]){ per[k] = a.sums[k]/a.counts[k]; sum += per[k]; cnt++; } }
+    return { ...a, per, overall: cnt ? sum/cnt : 0,
+      medLat: a.lat.length ? a.lat.slice().sort((x,y)=>x-y)[a.lat.length>>1] : null,
+      avgCost: a.cost.length ? a.cost.reduce((x,y)=>x+y,0)/a.cost.length : null };
+  }).sort((x,y) => y.overall - x.overall);
+
+  const t = el("table", { class:"res" });
+  const head = el("tr");
+  ["Engine","Model","Samples", ...CRITERIA.map(c => c[1].split(" ")[0]), "Overall","Median total","Avg cost"]
+    .forEach((h,i) => head.append(el("th", { class: i>=2 ? "num" : "", text:h })));
+  t.append(el("thead", {}, head));
+  const body = el("tbody");
+  for (const r of rows){
+    const tr = el("tr");
+    tr.append(el("td", { class:"pname", text:r.name }));
+    tr.append(el("td", { class:"pmeta", text:r.model }));
+    tr.append(el("td", { class:"num", text:r.n }));
+    for (const [k] of CRITERIA)
+      tr.append(el("td", { class:"num", text: r.per[k] ? r.per[k].toFixed(2) : "—" }));
+    tr.append(el("td", { class:"num" }, [
+      el("div", { style:"display:flex;align-items:center;gap:8px;justify-content:flex-end" }, [
+        el("b", { text: r.overall ? r.overall.toFixed(2) : "—" }),
+        el("span", { class:"meter" }, el("i", { style:`width:${(r.overall/5)*100}%` }))
+      ])
+    ]));
+    tr.append(el("td", { class:"num", text: fmtMs(r.medLat) }));
+    tr.append(el("td", { class:"num", text: r.avgCost == null ? "—" : (r.avgCost === 0 ? "free" : "$"+r.avgCost.toFixed(4)) }));
+    body.append(tr);
+  }
+  t.append(body);
+  host.append(el("div", { style:"overflow-x:auto" }, t));
+  host.append(el("div", { class:"note", style:"margin-top:10px",
+    text:`${state.board.length} scored sample${state.board.length===1?"":"s"} across ${new Set(state.board.map(e=>e.sentence)).size} sentence(s). Scores are 1–5; “Overall” is the mean of the four criteria you filled in.` }));
+  host.append(el("div", { style:"margin-top:10px" }, [
+    el("button", { class:"btn ghost sm", text:"Export leaderboard JSON",
+      onclick(){ download("chinese-tts-leaderboard.json", JSON.stringify(state.board, null, 2), "application/json"); } })
+  ]));
+}
+$("#wipeBoardBtn").addEventListener("click", () => {
+  if (!confirm("Delete all saved scores?")) return;
+  state.board = []; save(); renderBoard();
+});
+
+/* ============================================================================
+   EXPORT
+   ========================================================================== */
+function download(name, data, mime){
+  const a = el("a", { href:URL.createObjectURL(new Blob([data], {type:mime})), download:name });
+  document.body.append(a); a.click(); a.remove();
+}
+$("#csvBtn").addEventListener("click", () => {
+  const cols = ["engine","model","voice","chars","ttfb_ms","total_ms","audio_s","rtf","est_cost_usd","bytes","status","error"];
+  const esc = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const lines = [cols.join(",")];
+  for (const r of RESULTS) lines.push([
+    r.name, r.model, r.voice, r.chars,
+    r.ttfb?.toFixed(1), r.total?.toFixed(1), r.duration?.toFixed(3),
+    r.duration && r.total ? (r.duration/(r.total/1000)).toFixed(3) : "",
+    r.cost?.toFixed(6), r.bytes, r.status, r.error
+  ].map(esc).join(","));
+  download(`chinese-tts-${state.sentence}.csv`, lines.join("\n"), "text/csv");
+});
+$("#jsonBtn").addEventListener("click", () => {
+  download(`chinese-tts-${state.sentence}.json`, JSON.stringify({
+    ranAt: new Date().toISOString(),
+    sentenceId: state.sentence,
+    text: $("#text").value,
+    results: RESULTS.map(({blob, url, ...r}) => r)
+  }, null, 2), "application/json");
+});
+
+/* ============================================================================
+   REFERENCE TAB
+   ========================================================================== */
+const REF_ROWS = [
+  ["MiniMax Speech", "speech-02-hd / 2.5-turbo", "≈ $40–50 / 1M", "Chinese-native training data. Usually the most reliable on sandhi, erhua and polyphones; wide emotion control; 300+ voices incl. Cantonese.", "Needs a GroupId as well as a key; pricier than the Chinese-market average.", "best"],
+  ["Qwen3-TTS", "qwen3-tts-flash", "≈ $5–10 / 1M", "Cheapest credible engine here and the only one with a real dialect range — Beijing, Sichuan, Shanghai, Cantonese, Minnan. ~300 ms first packet.", "Returns a signed URL, not bytes; Singapore and Beijing endpoints need separate accounts.", "best"],
+  ["Azure AI Speech", "Neural / HD", "≈ $16–22 / 1M", "Largest zh catalogue (zh-CN/HK/TW + regional accents), speaking styles, and SSML <phoneme> so you can force a reading. Best when correctness must be guaranteed.", "Neural voices can sound dated next to 2026 models; SSML is verbose.", ""],
+  ["Google Cloud TTS", "Chirp 3: HD", "≈ $16–30 / 1M", "Very clean, stable prosody; cmn-CN, cmn-TW and yue-HK in one API; plain API key works from a browser.", "Chirp 3 drops some SSML controls; less expressive than the Chinese-native engines.", ""],
+  ["Gemini TTS", "gemini-3.1-flash-tts", "token-priced", "Steer delivery with a plain-language prompt instead of style enums; strong conversational Mandarin; multi-speaker dialogue.", "Returns raw PCM (big files); preview models change; cost is harder to predict.", ""],
+  ["Cartesia Sonic", "sonic-3.6", "≈ $40–50 / 1M", "Currently leads the Artificial Analysis speech arenas; built for sub-100 ms streaming voice agents.", "Chinese is one of 40+ languages rather than a focus — check tone accuracy yourself.", ""],
+  ["OpenAI Speech", "gpt-4o-mini-tts", "$0.015 / min", "Cheapest per minute, one-line integration, free-text `instructions` for delivery.", "Voices are English-first; Mandarin often carries a foreign accent and weak erhua.", ""],
+  ["ElevenLabs", "multilingual v2 / v3", "≈ $100 / 1M", "Best voice cloning and emotional range of anything here; huge community voice library.", "By far the most expensive; Chinese quality trails its English; must pick a multilingual model.", ""],
+  ["OpenRouter", "aggregator", "per model", "One key for MiniMax, Qwen, Fish Audio, Gemini, Microsoft, Grok, Kokoro and more, behind an OpenAI-shaped endpoint. The fastest way to hear the Chinese-first engines without opening vendor accounts.", "A markup over going direct, and you only get the models it has chosen to carry — no Azure, no ElevenLabs, no Cartesia.", ""],
+  ["Browser Web Speech", "OS voices", "free", "Zero cost, zero latency, no key, works offline. A useful floor.", "Quality varies wildly by OS; cannot be recorded to a file; no control over prosody.", ""]
+];
+
+function renderRef(){
+  const rows = REF_ROWS.map(([n,m,p,s,w,tag]) => `
+    <tr>
+      <td><span class="pname">${n}</span><div class="pmeta">${m}</div></td>
+      <td class="pmeta" style="white-space:nowrap">${p}</td>
+      <td>${s}</td>
+      <td class="pmeta">${w}</td>
+      <td>${tag ? '<span class="tag best">Chinese-first</span>' : ''}</td>
+    </tr>`).join("");
+
+  $("#refBody").innerHTML = `
+  <div class="card">
+    <header><h2>Which engines are worth testing for Mandarin</h2></header>
+    <p class="note" style="margin-top:0">
+      Two things separate Chinese TTS from English TTS. First, the hard part is <b>text analysis, not acoustics</b>:
+      tone sandhi, polyphone disambiguation, erhua and number normalisation are decided before a waveform exists,
+      which is why an engine can sound gorgeous and still be wrong. Second, engines trained primarily on Chinese
+      data are systematically better at that analysis than multilingual engines with Chinese bolted on — the gap
+      is much larger than the gap in raw audio quality. The Bench tab is built to expose exactly that difference.
+    </p>
+    <div style="overflow-x:auto; margin-top:12px">
+      <table class="res ref">
+        <thead><tr><th>Engine</th><th>Typical price</th><th>Strengths</th><th>Watch out for</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:10px">
+      Prices are public list rates at the time of writing and move often — each one is editable on the
+      Providers tab and feeds the cost column. Quality rankings shift with every model release; the point of
+      this tool is that you re-measure rather than trust a table.
+    </div>
+  </div>
+
+  <div class="card">
+    <header><h2>How to use it</h2></header>
+    <ol class="tight">
+      <li>Open <b>Providers &amp; keys</b>, switch on the engines you have keys for, paste the keys, and click
+          <b>Load</b> next to Voice so the dropdown reflects what your account can actually use.</li>
+      <li>On <b>Bench</b>, pick a test sentence. Each one isolates one failure mode and lists the exact tokens
+          to judge, with the correct reading and the mistake engines usually make.</li>
+      <li>Tick <b>Blind mode</b> before you listen. Knowing which engine you're hearing reliably shifts scores,
+          and the whole point is to find out what you actually prefer.</li>
+      <li>Score 1–5 on tone, pronunciation, prosody and naturalness, then save to the leaderboard. Scores
+          accumulate across sentences and sessions, so the ranking gets more trustworthy the more you run.</li>
+      <li>Run the same sentence on a second day before concluding anything — hosted models change under you.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <header><h2>Notes on the measurements</h2></header>
+    <ul class="tight">
+      <li><b>TTFB</b> is the time until response headers arrive, which approximates server think-time. It is the
+          number that matters for a voice agent; <b>Total</b> is what matters for batch jobs.</li>
+      <li>By default non-browser engines run <b>in parallel</b>, which is fast but lets them compete for local
+          bandwidth. Tick <b>sequential</b> on the Run card for timings you can quote.</li>
+      <li>Latency depends heavily on your distance to the region you configured. An engine is not slow because
+          it lost here — it may just be answering from the other side of the planet.</li>
+      <li>Audio duration is decoded from the returned bytes, so <b>RTF</b> and per-minute costs are measured
+          rather than estimated.</li>
+      <li>The browser engine speaks through your speakers instead of returning a file, so its "audio length"
+          is wall-clock speaking time and it produces nothing to download.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <header><h2>Why this can be a single HTML file</h2></header>
+    <p class="note" style="margin-top:0">
+      Every hosted engine wired up here answers a CORS preflight from an arbitrary browser origin, so the page
+      can call the vendor APIs directly with no server in the middle. That was checked per endpoint rather than
+      assumed, then re-checked with live requests: Azure, Google, Gemini, ElevenLabs, MiniMax, Qwen and Cartesia
+      all returned readable API responses straight to the browser. Two exceptions are worth knowing.
+      <b>OpenAI's <code>/v1/audio/speech</code></b> passes the preflight but omits the CORS header on rejected
+      requests, so failures arrive as an opaque browser block; if it doesn't work for you, point the proxy prefix
+      at your own hop. <b>Fish Audio</b> was left out entirely — its endpoint sends no CORS headers at all.
+      In every case your key is exposed to anything running on this page, so use a restricted test key.
+    </p>
+    <p class="note">
+      Opening the file over <code>file://</code> sends <code>Origin: null</code>, which some vendors reject.
+      If a request fails with a CORS error, serve the folder instead:
+      <code>python3 -m http.server 8080</code> then open <code>http://localhost:8080</code>.
+    </p>
+  </div>
+
+  <div class="card">
+    <header><h2>Where to get keys</h2></header>
+    <ul class="tight">
+      ${PROVIDERS.filter(p=>p.kind!=="local").map(p =>
+        `<li><b>${p.name}</b> — <a href="${p.docs}" target="_blank" rel="noreferrer">${p.docs}</a></li>`).join("")}
+    </ul>
+  </div>`;
+}
+
+/* ============================================================================
+   BOOT
+   ========================================================================== */
+$("#runNote").innerHTML =
+  `<label style="display:inline-flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink2);margin:0">
+     <input type="checkbox" id="seq" style="width:auto"> Run sequentially (slower, fairer latency numbers)
+   </label>`;
+
+renderChips();
+loadSentence(SENTENCES.find(s => s.id === state.sentence) || SENTENCES[0]);
+if (state.sentence === "custom") $("#listenPanel").classList.add("hide");
+renderProviders();
+renderRef();
+if ("speechSynthesis" in window) speechSynthesis.getVoices();
+</script>
+</body>
+</html>

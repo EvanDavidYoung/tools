@@ -19,3 +19,9 @@ raw-film-lab/wasm-src
 raw-film-lab/wasm-src/**
 raw-film-lab/vendor
 raw-film-lab/vendor/**
+compare-chinese-tts/scripts
+compare-chinese-tts/scripts/**
+compare-chinese-tts/tests
+compare-chinese-tts/tests/**
+.env
+**/.env
