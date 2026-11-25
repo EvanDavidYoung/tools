@@ -12,6 +12,9 @@
 .wrangler/**
 wrangler.jsonc
 wrangler.toml
+worker.js
+ics-to-gcal/tests
+ics-to-gcal/tests/**
 README.md
 shadowing/tests
 shadowing/tests/**

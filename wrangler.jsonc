@@ -1,13 +1,23 @@
 {
   // tools.evanyoung.dev is a Worker serving this directory as static assets — not a
-  // Pages project. Workers Builds runs `npx wrangler deploy` on every push to main;
-  // see .claude/skills/deploy/SKILL.md. .assetsignore decides what stays off the web,
+  // Pages project — plus a small script (worker.js) for the few API routes. Workers
+  // Builds runs `npx wrangler deploy` on every push to main; see .claude/skills/deploy/SKILL.md. .assetsignore decides what stays off the web,
   // _redirects sends / to the catalogue at evanyoung.dev/tools.
   "$schema": "https://developers.cloudflare.com/workers/wrangler/configuration/",
   "name": "tools",
   "compatibility_date": "2026-09-17",
   "observability": { "enabled": true },
-  "assets": { "directory": "." },
+  // worker.js only handles the paths in run_worker_first (and requests no asset matches);
+  // everything else is served straight from assets without running it.
+  "main": "worker.js",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/ics-to-gcal/api/*"]
+  },
+  // Workers AI on the free plan, for ics-to-gcal's screenshot reader.
+  // Its password is the ICS_TO_GCAL_PASSWORD secret: npx wrangler secret put ICS_TO_GCAL_PASSWORD
+  "ai": { "binding": "AI" },
   "routes": [
     { "pattern": "tools.evanyoung.dev", "custom_domain": true }
   ]

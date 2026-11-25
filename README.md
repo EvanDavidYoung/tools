@@ -24,6 +24,10 @@ working in a year. These keep working.
   The exception is `stem-splitter`, a front end for a GPU job: it uploads the song to
   its own Modal endpoint ([source](https://github.com/EvanDavidYoung/stem-splitter)),
   which rejects any request without the API key.
+  And `ics-to-gcal` can read a screenshot: either with the visitor's own Claude key (sent
+  from the browser straight to Anthropic), or through this site's own Worker route
+  (`worker.js` → Workers AI, free plan), which needs a shared password stored as the
+  `ICS_TO_GCAL_PASSWORD` secret. No password set, no route.
 - **Hand the hard input to an AI.** When a tool needs structured input that's a pain
   to type — a room's dimensions, a schema, a dataset — ship a prompt file next to it.
   The user pastes that prompt into whatever chat window they already have open, feeds it
@@ -39,6 +43,15 @@ working in a year. These keep working.
 1. Add `<tool>/index.html` here and push to `main`.
 2. Add an entry to `src/data/tools.ts` in the portfolio repo and push that to `main`.
 
+## Tests
+
+Tools that have them keep them in `<tool>/tests/`, run with plain Node (no install):
+
+```
+node --test ics-to-gcal/tests/*.mjs
+node shadowing/tests/shadowing.test.js
+```
+
 ## Local development
 
 ```
@@ -46,8 +59,9 @@ npx serve .
 ```
 
 Then open `localhost:3000/<tool>/` — the root has no index. Opening a tool over
-`file://` mostly works, but `climb-viewer`'s sample loader uses `fetch()`, which
-needs a real origin.
+`file://` mostly works, but `climb-viewer`'s sample loader uses `fetch()` and
+`ics-to-gcal` loads a module, which both need a real origin. `ics-to-gcal`'s free
+screenshot reader only exists on the deployed site (or under `npx wrangler dev`).
 
 ## Deploying
 

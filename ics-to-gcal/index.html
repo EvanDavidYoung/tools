@@ -11,12 +11,13 @@
   main { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .sub { color: var(--muted); margin: 0 0 18px; }
-  #drop { display: grid; place-items: center; text-align: center; gap: 6px; min-height: 180px; padding: 24px;
+  #drop { display: grid; place-items: center; text-align: center; gap: 6px; min-height: 150px; padding: 24px;
           background: var(--panel); border: 2px dashed #cfc6b5; border-radius: 12px; cursor: pointer; transition: border-color .12s, background .12s; }
   #drop:hover, #drop:focus-visible { border-color: var(--accent); outline: none; }
   #drop.over { border-color: var(--accent); background: #eef3fd; }
   #drop b { font-size: 15px; }
   #drop .muted { font-size: 12px; }
+  .muted { color: var(--muted); }
   details { margin: 12px 0 0; }
   summary { cursor: pointer; color: var(--muted); font-size: 13px; }
   textarea { display: block; width: 100%; height: 140px; margin-top: 8px; padding: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace;
@@ -24,6 +25,7 @@
   button, a.btn { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 6px 11px;
                   color: var(--ink); text-decoration: none; display: inline-block; }
   button:hover, a.btn:hover { border-color: #c9c1b1; background: #faf8f4; }
+  button:disabled, a.btn.off { opacity: .45; pointer-events: none; }
   .primary, a.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .primary:hover, a.primary:hover { background: #2760c4; border-color: #2760c4; }
   .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -31,25 +33,117 @@
   #status.bad { color: var(--bad); font-weight: 600; }
   .event { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 10px; }
   .event h2 { font-size: 16px; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .event.flash { animation: flash 1.4s ease-out; }
+  @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
   .meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
   .warn { color: var(--bad); font-size: 12px; margin-top: 6px; }
   .url { margin-top: 8px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--muted); background: #faf8f4; border: 1px solid var(--line);
          border-radius: 6px; padding: 6px 8px; overflow-wrap: anywhere; max-height: 4.4em; overflow: auto; }
   input[type=file] { display: none; }
+
+  /* Screenshot reader settings */
+  .reader { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; display: grid; gap: 8px; }
+  .reader .opt { display: flex; gap: 8px; align-items: flex-start; }
+  .reader .opt input[type=radio] { margin-top: 3px; }
+  .reader .opt div { display: grid; gap: 4px; flex: 1; }
+  .reader small { color: var(--muted); }
+  .field { font: inherit; color: var(--ink); padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fff; width: 100%; min-width: 0; }
+  .field:focus { outline: 2px solid #bcd0f5; border-color: var(--accent); }
+
+  /* The screenshot being read */
+  #shot { display: none; grid-template-columns: 84px 1fr; gap: 12px; margin-top: 12px; background: var(--panel);
+          border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  #shot.on { display: grid; }
+  #shot img { width: 84px; max-height: 150px; object-fit: cover; object-position: top; border-radius: 6px; border: 1px solid var(--line); }
+  #shot textarea { height: 60px; margin-top: 0; font: inherit; }
+
+  /* Event drafts from a screenshot */
+  .draft { border-color: #c9d8f6; }
+  .draft-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .draft-head button { padding: 2px 8px; font-size: 12px; }
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 8px; }
+  .form .full { grid-column: 1 / -1; }
+  .form label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .form label.check { flex-direction: row; align-items: center; gap: 6px; align-self: end; padding-bottom: 7px; color: var(--ink); font-size: 13px; }
+  .form textarea { height: 64px; margin-top: 0; font: inherit; }
+  .form .need .field { border-color: #e3a49c; background: #fdf3f1; }
+  .ask { color: var(--bad); font-size: 12px; }
+  .ask.soft { color: var(--muted); }
+  .still { color: var(--bad); font-size: 12px; margin-top: 8px; }
+
+  /* Calendar */
+  #cal { margin: 18px 0 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .cal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .cal-head .btns { margin: 0; }
+  .cal-head button { padding: 3px 10px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .dow { font-size: 11px; color: var(--muted); text-align: center; }
+  .day { min-height: 74px; padding: 3px 4px; border-radius: 6px; background: #faf8f4; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .day.alt { background: #f1ede4; }
+  .day.past .num { color: #b3ab9c; }
+  .day.today { outline: 2px solid var(--accent); outline-offset: -2px; background: #eef3fd; }
+  .day.today .num { color: var(--accent); font-weight: 600; }
+  .num { font-size: 12px; }
+  .chip { display: block; width: 100%; text-align: left; font-family: inherit; font-size: 11px; line-height: 1.35; padding: 1px 4px; border-radius: 4px; border: 1px solid var(--accent);
+          background: var(--accent); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .chip:hover { background: #2760c4; border-color: #2760c4; }
+  .chip.pending { background: #fff; color: var(--accent); border-style: dashed; }
+  .cal-key { margin-top: 6px; font-size: 11px; color: var(--muted); }
+  @media (max-width: 560px) {
+    .day { min-height: 56px; padding: 2px; }
+    .chip { font-size: 10px; padding: 0 2px; }
+    .form { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 <main>
   <h1>ICS to Google Calendar</h1>
-  <p class="sub">Turn an <code>.ics</code> invite into an “add to Google Calendar” link. Parsed in your browser; nothing is uploaded.</p>
+  <p class="sub">Turn an <code>.ics</code> invite, or a screenshot of one, into an “add to Google Calendar” link and a clean <code>.ics</code> file.</p>
 
-  <div id="drop" tabindex="0" role="button" aria-label="Choose or drop .ics files">
+  <div id="drop" tabindex="0" role="button" aria-label="Choose or drop .ics files or a screenshot">
     <div>
-      <b>Drop .ics files here</b>
-      <div class="muted">or click to choose — several at once is fine</div>
+      <b>Drop .ics files or a screenshot here</b>
+      <div class="muted">or click to choose, or paste a screenshot with ⌘V / Ctrl+V</div>
     </div>
   </div>
-  <input type="file" id="file" accept=".ics,.ical,.ifb,.icalendar,text/calendar" multiple>
+  <input type="file" id="file" accept=".ics,.ical,.ifb,.icalendar,text/calendar,image/png,image/jpeg,image/webp,image/heic,image/gif" multiple>
+
+  <div id="shot">
+    <img id="shotImg" alt="The screenshot being read">
+    <div>
+      <textarea id="hint" class="field" placeholder="Anything the screenshot doesn’t say? e.g. “it’s next Friday”, “at my place”, “about 2 hours”"></textarea>
+      <div class="btns">
+        <button class="primary" id="read">Read screenshot</button>
+        <button id="shotClear">Remove</button>
+        <span class="muted" id="readerNote" style="align-self:center;font-size:12px"></span>
+      </div>
+    </div>
+  </div>
+
+  <details id="readerBox">
+    <summary>Screenshot reader: <span id="readerSummary"></span></summary>
+    <div class="reader">
+      <label class="opt">
+        <input type="radio" name="reader" value="free">
+        <div>
+          <b>Free (Workers AI)</b>
+          <input type="password" id="pw" class="field" placeholder="Password" autocomplete="current-password">
+          <small>Runs on this site’s free Cloudflare quota, so it needs the password.</small>
+        </div>
+      </label>
+      <label class="opt">
+        <input type="radio" name="reader" value="claude">
+        <div>
+          <b>Your own Claude API key</b>
+          <input type="password" id="apikey" class="field" placeholder="sk-ant-…" autocomplete="off">
+          <small>Sent straight from this browser to Anthropic; never to this site. Reads screenshots more reliably, about 2¢ each.
+            Get a key at <a href="https://platform.claude.com/" target="_blank" rel="noopener">platform.claude.com</a>.</small>
+        </div>
+      </label>
+      <small>Both are saved in this browser only.</small>
+    </div>
+  </details>
 
   <details>
     <summary>Or paste the ICS text</summary>
@@ -57,11 +151,28 @@
     <div class="btns"><button class="primary" id="convert">Convert</button></div>
   </details>
 
+  <section id="cal" aria-label="Calendar">
+    <div class="cal-head">
+      <b id="calTitle"></b>
+      <div class="btns">
+        <button id="calPrev" aria-label="Earlier week">‹</button>
+        <button id="calToday">Today</button>
+        <button id="calNext" aria-label="Later week">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-key" id="calKey"></div>
+  </section>
+
   <div id="status"></div>
+  <div id="drafts"></div>
   <div id="out"></div>
 </main>
 
-<script>
+<script type="module">
+import { buildPrompt, parseModelJson, normalizeExtraction, missingFields, toICS, calendarWeeks, addDays, EXTRACT_SCHEMA }
+  from './events.js';
+
 // ---------- ICS parsing ----------
 
 function unfold(text) {
@@ -268,10 +379,10 @@ function buildEvent(ev) {
   return { title: title || '(untitled)', start, end, ctz, location, recurring: !!ev.RRULE, link, warnings: [...warnings] };
 }
 
-// ---------- UI ----------
+// ---------- UI helpers ----------
 
 const $ = s => document.querySelector(s);
-const out = $('#out'), status = $('#status');
+const out = $('#out'), status = $('#status'), draftsEl = $('#drafts');
 
 function describeWhen(e) {
   if (e.start.allDay) {
@@ -297,14 +408,50 @@ function el(tag, attrs = {}, text) {
   return n;
 }
 
-function render(results) {
-  out.replaceChildren();
-  const ok = results.filter(r => !r.error);
-  status.className = ok.length ? '' : 'bad';
-  status.textContent = ok.length
-    ? `${ok.length} event${ok.length === 1 ? '' : 's'}`
-    : (results.length ? 'Found events, but none had a readable start time.' : 'No events (VEVENT) found in that.');
+function setStatus(text, bad = false) {
+  status.className = bad ? 'bad' : '';
+  status.textContent = text;
+}
 
+const slug = s => (s || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'event';
+
+// "Add to Google Calendar", "Copy link" and, when we wrote the .ics ourselves, "Download .ics".
+function actionButtons(r, ics) {
+  const btns = el('div', { className: 'btns' });
+  btns.append(el('a', { className: 'btn primary', href: r.link, target: '_blank', rel: 'noopener' }, 'Add to Google Calendar'));
+  if (ics) {
+    const a = el('a', { className: 'btn', download: `${slug(r.title)}.ics`, href: '#' }, 'Download .ics');
+    // Make the file on click, so editing a draft doesn't pile up blob URLs.
+    a.onclick = () => {
+      const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      a.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    };
+    btns.append(a);
+  }
+  const copy = el('button', {}, 'Copy link');
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(r.link); copy.textContent = 'Copied'; }
+    catch { copy.textContent = 'Copy failed'; }
+    setTimeout(() => (copy.textContent = 'Copy link'), 1400);
+  };
+  btns.append(copy);
+  return btns;
+}
+
+// ---------- Results from .ics files ----------
+
+let uploaded = []; // [{ result, card }]
+
+function renderUploaded(results) {
+  out.replaceChildren();
+  uploaded = [];
+  const ok = results.filter(r => !r.error);
+  if (results.length || !drafts.length) {
+    setStatus(ok.length
+      ? `${ok.length} event${ok.length === 1 ? '' : 's'}`
+      : (results.length ? 'Found events, but none had a readable start time.' : 'No events (VEVENT) found in that.'), !ok.length);
+  }
   for (const r of results) {
     const card = el('div', { className: 'event' });
     card.append(el('h2', {}, r.title));
@@ -316,31 +463,412 @@ function render(results) {
     card.append(el('div', { className: 'meta' }, describeWhen(r) + (r.recurring ? ' · repeats' : '')));
     if (r.location) card.append(el('div', { className: 'meta' }, r.location));
     for (const w of r.warnings) card.append(el('div', { className: 'warn' }, w));
-
-    const btns = el('div', { className: 'btns' });
-    btns.append(el('a', { className: 'btn primary', href: r.link, target: '_blank', rel: 'noopener' }, 'Add to Google Calendar'));
-    const copy = el('button', {}, 'Copy link');
-    copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(r.link); copy.textContent = 'Copied'; }
-      catch { copy.textContent = 'Copy failed'; }
-      setTimeout(() => (copy.textContent = 'Copy link'), 1400);
-    };
-    btns.append(copy);
-    card.append(btns, el('div', { className: 'url' }, r.link));
+    card.append(actionButtons(r), el('div', { className: 'url' }, r.link));
     out.append(card);
+    uploaded.push({ result: r, card });
   }
+  renderCalendar(ok);
 }
 
 function convertText(texts) {
   const results = [];
   for (const t of texts) for (const ev of parseEvents(t)) results.push(buildEvent(ev));
-  render(results);
+  renderUploaded(results);
 }
+
+// ---------- Screenshot reader settings ----------
+
+const KEY = { mode: 'ics-to-gcal_mode', pw: 'ics-to-gcal_password', key: 'ics-to-gcal_api_key' };
+const store = {
+  get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+  set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }
+};
+const readerBox = $('#readerBox'), pwInput = $('#pw'), keyInput = $('#apikey');
+
+const mode = () => document.querySelector('input[name=reader]:checked').value;
+
+function refreshReaderSummary() {
+  const m = mode();
+  const ready = m === 'free' ? !!pwInput.value : !!keyInput.value;
+  const label = m === 'free' ? 'free (Workers AI)' : 'your Claude key';
+  $('#readerSummary').textContent = ready ? label : `${label}, not set up yet`;
+  $('#readerNote').textContent = `with ${label}`;
+}
+
+(function initReader() {
+  const m = store.get(KEY.mode) === 'claude' ? 'claude' : 'free';
+  document.querySelector(`input[name=reader][value=${m}]`).checked = true;
+  pwInput.value = store.get(KEY.pw);
+  keyInput.value = store.get(KEY.key);
+  for (const r of document.querySelectorAll('input[name=reader]')) {
+    r.onchange = () => { store.set(KEY.mode, mode()); refreshReaderSummary(); };
+  }
+  pwInput.oninput = () => { store.set(KEY.pw, pwInput.value); refreshReaderSummary(); };
+  keyInput.oninput = () => { store.set(KEY.key, keyInput.value.trim()); refreshReaderSummary(); };
+  // Typing in a box picks that option.
+  pwInput.onfocus = () => { document.querySelector('input[name=reader][value=free]').checked = true; store.set(KEY.mode, 'free'); refreshReaderSummary(); };
+  keyInput.onfocus = () => { document.querySelector('input[name=reader][value=claude]').checked = true; store.set(KEY.mode, 'claude'); refreshReaderSummary(); };
+  refreshReaderSummary();
+})();
+
+function askForCredentials(message) {
+  readerBox.open = true;
+  setStatus(message, true);
+  (mode() === 'free' ? pwInput : keyInput).focus();
+}
+
+// ---------- Reading a screenshot ----------
+
+const todayIso = () => new Intl.DateTimeFormat('en-CA', { timeZone: LOCAL_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+// Downscale to what the models actually look at, flattened onto white, as JPEG.
+async function prepImage(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(bmp.width * scale));
+  c.height = Math.max(1, Math.round(bmp.height * scale));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return c.toDataURL('image/jpeg', 0.88);
+}
+
+class ReaderError extends Error {
+  constructor(message, { credentials = false } = {}) { super(message); this.credentials = credentials; }
+}
+
+async function readFree(dataUrl, hint) {
+  let res;
+  try {
+    res = await fetch('/ics-to-gcal/api/extract', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-tool-password': pwInput.value },
+      body: JSON.stringify({ image: dataUrl, today: todayIso(), timeZone: LOCAL_TZ, hint })
+    });
+  } catch {
+    throw new ReaderError("Couldn't reach the free reader. Are you offline?");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new ReaderError('That password is wrong.', { credentials: true });
+  if (res.status === 404) throw new ReaderError('The free reader only works on tools.evanyoung.dev. Use your own Claude key here.', { credentials: true });
+  if (!res.ok) {
+    const msg = data.error || `The free reader failed (HTTP ${res.status}).`;
+    throw new ReaderError(/limit|neuron|3036|capacity/i.test(msg)
+      ? `${msg} The free daily quota may be used up. Try again tomorrow, or use your own Claude key.` : msg);
+  }
+  return normalizeExtraction(data);
+}
+
+// Pinned so the page keeps working when the SDK moves on.
+const ANTHROPIC_SDK = 'https://esm.sh/@anthropic-ai/sdk@1.14.0';
+
+async function readClaude(dataUrl, hint) {
+  let Anthropic;
+  try { ({ default: Anthropic } = await import(ANTHROPIC_SDK)); }
+  catch { throw new ReaderError("Couldn't load the Anthropic SDK. Are you offline?"); }
+  const client = new Anthropic({ apiKey: keyInput.value.trim(), dangerouslyAllowBrowser: true });
+  let msg;
+  try {
+    msg = await client.beta.messages.create({
+      model: 'claude-opus-5-5',
+      max_tokens: 16000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: EXTRACT_SCHEMA } },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: dataUrl.slice(dataUrl.indexOf(',') + 1) } },
+          { type: 'text', text: buildPrompt({ today: todayIso(), timeZone: LOCAL_TZ, hint }) }
+        ]
+      }]
+    });
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+      throw new ReaderError('Anthropic rejected that API key.', { credentials: true });
+    }
+    if (e instanceof Anthropic.RateLimitError) throw new ReaderError('Your key is being rate-limited. Try again in a minute.');
+    if (e instanceof Anthropic.APIConnectionError) throw new ReaderError("Couldn't reach Anthropic. Are you offline?");
+    if (e instanceof Anthropic.APIError) throw new ReaderError(`Claude API error: ${e.message}`);
+    throw e;
+  }
+  if (msg.stop_reason === 'refusal') throw new ReaderError('Claude declined to read this screenshot.');
+  if (msg.stop_reason === 'max_tokens') throw new ReaderError("Claude's answer was cut off. Try a smaller screenshot.");
+  const text = msg.content.filter(b => b.type === 'text').map(b => b.text).join('');
+  return normalizeExtraction(parseModelJson(text));
+}
+
+let shot = null; // { dataUrl }
+let reading = false;
+
+async function handleImage(file) {
+  setStatus('Preparing screenshot…');
+  try {
+    shot = { dataUrl: await prepImage(file) };
+  } catch {
+    setStatus("Couldn't open that image. Try a PNG or JPEG screenshot.", true);
+    return;
+  }
+  $('#shotImg').src = shot.dataUrl;
+  $('#shot').classList.add('on');
+  $('#read').textContent = 'Read screenshot';
+  readShot();
+}
+
+async function readShot() {
+  if (!shot || reading) return;
+  const m = mode();
+  if (m === 'free' && !pwInput.value) return askForCredentials('Enter the password for the free reader, then press Read screenshot.');
+  if (m === 'claude' && !keyInput.value.trim()) return askForCredentials('Paste your Claude API key, then press Read screenshot.');
+  reading = true;
+  const readBtn = $('#read');
+  readBtn.disabled = true;
+  setStatus(m === 'free' ? 'Reading the screenshot with Workers AI…' : 'Reading the screenshot with Claude…');
+  try {
+    const hint = $('#hint').value;
+    const { events, notes } = m === 'free' ? await readFree(shot.dataUrl, hint) : await readClaude(shot.dataUrl, hint);
+    renderDrafts(events);
+    if (!events.length) setStatus(notes || 'No event found in that screenshot. Add details above and read it again.', true);
+    else {
+      const open = events.filter(e => missingFields(e).length).length;
+      setStatus(`Found ${events.length} event${events.length === 1 ? '' : 's'}.`
+        + (open ? ' Fill in what’s highlighted, or add details above and read again.' : ' Check the details, then add it.')
+        + (notes ? ` ${notes}` : ''));
+      status.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    readBtn.textContent = 'Read again';
+  } catch (e) {
+    if (e instanceof ReaderError && e.credentials) askForCredentials(e.message);
+    else setStatus(e instanceof ReaderError ? e.message : `Something went wrong: ${e.message}`, true);
+  } finally {
+    reading = false;
+    readBtn.disabled = false;
+  }
+}
+
+$('#read').onclick = readShot;
+$('#shotClear').onclick = () => { shot = null; $('#shot').classList.remove('on'); $('#hint').value = ''; renderDrafts([]); setStatus(''); };
+
+// ---------- Draft events from a screenshot ----------
+
+let drafts = []; // [{ ev, card, result, ics }]
+
+const FIELD_LABEL = { title: 'title', date: 'date', start_time: 'start time', end_date: 'a last day on or after the start' };
+
+function draftResult(ev) {
+  if (missingFields(ev).length) return { result: null, ics: '' };
+  const ics = toICS([ev], { defaultZone: LOCAL_TZ });
+  const parsed = parseEvents(ics)[0];
+  const result = parsed && buildEvent(parsed);
+  return result && !result.error ? { result, ics } : { result: null, ics: '' };
+}
+
+function renderDrafts(events) {
+  draftsEl.replaceChildren();
+  drafts = events.map(ev => makeDraft(ev));
+  for (const d of drafts) draftsEl.append(d.card);
+  renderCalendar(drafts.filter(d => d.result).map(d => d.result));
+}
+
+function makeDraft(ev) {
+  const d = { ev, card: el('div', { className: 'event draft' }), result: null, ics: '' };
+  const head = el('div', { className: 'draft-head' });
+  head.append(el('span', {}, 'From the screenshot. Check it, then add it.'));
+  const discard = el('button', { title: 'Discard this event' }, 'Discard');
+  discard.onclick = () => { drafts = drafts.filter(x => x !== d); d.card.remove(); renderCalendar(); };
+  head.append(discard);
+
+  const form = el('div', { className: 'form' });
+  const asks = {};   // field → question element
+  const wraps = {};  // field → label element
+  const input = (field, label, type, cls = '') => {
+    const wrap = el('label', { className: cls });
+    wrap.append(label);
+    const i = el(type === 'textarea' ? 'textarea' : 'input', { className: 'field' });
+    if (type !== 'textarea') i.type = type;
+    i.value = ev[field] || '';
+    i.oninput = () => { ev[field] = i.value; update(); };
+    wrap.append(i);
+    const q = ev.questions.find(q => q.field === field);
+    if (q) { asks[field] = el('span', { className: 'ask' }, q.question); wrap.append(asks[field]); }
+    wraps[field] = wrap;
+    form.append(wrap);
+    return i;
+  };
+
+  input('title', 'Title', 'text', 'full');
+  input('date', 'Date', 'date');
+  const allDay = el('label', { className: 'check' });
+  const allDayBox = el('input', { type: 'checkbox', checked: ev.all_day });
+  allDayBox.onchange = () => { ev.all_day = allDayBox.checked; update(); };
+  allDay.append(allDayBox, 'All day');
+  form.append(allDay);
+  input('start_time', 'Starts', 'time');
+  input('end_time', 'Ends (optional, default 1 hour)', 'time');
+  input('end_date', 'Last day (optional, for multi-day events)', 'date');
+  const tz = input('time_zone', `Time zone (blank = ${LOCAL_TZ})`, 'text');
+  tz.setAttribute('list', 'zones');
+  tz.placeholder = LOCAL_TZ;
+  input('location', 'Location', 'text', 'full');
+  input('description', 'Notes', 'textarea', 'full');
+
+  const still = el('div', { className: 'still' });
+  const actions = el('div');
+  d.card.append(head, form, still, actions);
+
+  function update() {
+    const missing = missingFields(ev);
+    for (const f of Object.keys(wraps)) wraps[f].classList.toggle('need', missing.includes(f));
+    for (const [f, q] of Object.entries(asks)) {
+      // Red while the field blocks adding the event; grey for optional fields or once answered.
+      q.classList.toggle('soft', !missing.includes(f));
+    }
+    wraps.start_time.style.display = wraps.end_time.style.display = ev.all_day ? 'none' : '';
+    wraps.time_zone.style.display = ev.all_day ? 'none' : '';
+    still.textContent = missing.length ? `Still needed: ${missing.map(f => FIELD_LABEL[f] || f).join(', ')}.` : '';
+    Object.assign(d, draftResult(ev));
+    actions.replaceChildren();
+    if (d.result) {
+      actions.append(el('div', { className: 'meta' }, describeWhen(d.result)));
+      for (const w of d.result.warnings) actions.append(el('div', { className: 'warn' }, w));
+      actions.append(actionButtons(d.result, d.ics));
+    } else {
+      const btns = el('div', { className: 'btns' });
+      btns.append(el('a', { className: 'btn primary off' }, 'Add to Google Calendar'), el('a', { className: 'btn off' }, 'Download .ics'));
+      actions.append(btns);
+    }
+    renderCalendar();
+  }
+  d.update = update;
+  update();
+  return d;
+}
+
+// Time zone suggestions for the draft form.
+(function zoneList() {
+  const list = el('datalist', { id: 'zones' });
+  let zones = [];
+  try { zones = Intl.supportedValuesOf('timeZone'); } catch {}
+  for (const z of zones) list.append(el('option', { value: z }));
+  document.body.append(list);
+})();
+
+// ---------- Calendar ----------
+
+let calOffset = 0;
+const calGrid = $('#calGrid');
+const localIso = ms => new Intl.DateTimeFormat('en-CA', { timeZone: LOCAL_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+const isoOf = t => `${t.y}-${pad(t.mo)}-${pad(t.d)}`;
+
+// The days (in the viewer's zone) an event covers, capped so a year-long event doesn't flood the grid.
+function eventDays(r) {
+  if (r.start.allDay) {
+    const days = [];
+    let day = isoOf(r.start);
+    const end = isoOf(r.end);
+    while (day < end && days.length < 62) { days.push(day); day = addDays(day, 1); }
+    return days.length ? days : [isoOf(r.start)];
+  }
+  return [localIso(toInstant(r.start))];
+}
+
+function timeLabel(r) {
+  if (r.start.allDay) return '';
+  return new Date(toInstant(r.start)).toLocaleTimeString(undefined, { timeZone: LOCAL_TZ, hour: 'numeric', minute: '2-digit' })
+    .replace(':00', '').replace(/\s/g, '').toLowerCase();
+}
+
+function calendarEntries() {
+  const entries = [];
+  for (const u of uploaded) entries.push({ r: u.result, card: u.card, pending: false });
+  for (const d of drafts) if (d.result) entries.push({ r: d.result, card: d.card, pending: true });
+  return entries;
+}
+
+let lastFocusKey = '';
+
+function renderCalendar(newResults) {
+  const today = todayIso();
+  const entries = calendarEntries();
+
+  // When new events arrive outside the view, move the view to the first one.
+  if (newResults && newResults.length) {
+    const first = eventDays(newResults[0])[0];
+    const key = newResults.map(r => r.link).join('|');
+    if (key !== lastFocusKey) {
+      lastFocusKey = key;
+      const weeks = calendarWeeks(today, calOffset);
+      if (first < weeks[0][0] || first > weeks.at(-1)[6]) {
+        calOffset = Math.round((isoToDateUTC(first) - isoToDateUTC(today)) / (7 * 86400000));
+      }
+    }
+  }
+
+  const weeks = calendarWeeks(today, calOffset);
+  const byDay = new Map();
+  for (const e of entries) for (const day of eventDays(e.r)) {
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(e);
+  }
+
+  calGrid.replaceChildren();
+  for (const dow of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) calGrid.append(el('div', { className: 'dow' }, dow));
+  const monthName = iso => new Date(isoToDateUTC(iso)).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short' });
+  weeks.flat().forEach((day, i) => {
+    const [, mo, dd] = day.split('-').map(Number);
+    const cell = el('div', { className: 'day' + (mo % 2 ? '' : ' alt') + (day < today ? ' past' : '') + (day === today ? ' today' : '') });
+    cell.append(el('div', { className: 'num' }, dd === 1 || i === 0 ? `${monthName(day)} ${dd}` : String(dd)));
+    if (day === today) cell.setAttribute('aria-current', 'date');
+    for (const e of byDay.get(day) || []) {
+      const t = timeLabel(e.r);
+      const chip = el('button', { className: 'chip' + (e.pending ? ' pending' : ''), title: `${e.r.title}\n${describeWhen(e.r)}` },
+        (t ? t + ' ' : '') + e.r.title);
+      chip.onclick = () => {
+        e.card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        e.card.classList.remove('flash'); void e.card.offsetWidth; e.card.classList.add('flash');
+      };
+      cell.append(chip);
+    }
+    calGrid.append(cell);
+  });
+
+  const f = (iso, withYear) => new Date(isoToDateUTC(iso)).toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}) });
+  const first = weeks[0][0], last = weeks.at(-1)[6];
+  $('#calTitle').textContent = `${f(first, first.slice(0, 4) !== last.slice(0, 4))} – ${f(last, true)}`;
+  $('#calToday').disabled = calOffset === 0;
+  $('#calKey').textContent = entries.some(e => e.pending)
+    ? 'Dashed: from the screenshot, not added to Google Calendar yet. Click an event to jump to it.'
+    : (entries.length ? 'Click an event to jump to it.' : '');
+}
+
+const isoToDateUTC = iso => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+
+$('#calPrev').onclick = () => { calOffset--; renderCalendar(); };
+$('#calNext').onclick = () => { calOffset++; renderCalendar(); };
+$('#calToday').onclick = () => { calOffset = 0; renderCalendar(); };
+// Keep "today" right if the tab stays open past midnight.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderCalendar(); });
+renderCalendar();
+
+// ---------- Input: files, drops, paste ----------
+
+const isImage = f => /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|gif)$/i.test(f.name);
 
 async function handleFiles(files) {
   if (!files || !files.length) return;
-  try { convertText(await Promise.all([...files].map(f => f.text()))); }
-  catch (e) { status.className = 'bad'; status.textContent = `Couldn't read that file: ${e.message}`; }
+  const all = [...files];
+  const images = all.filter(isImage), cals = all.filter(f => !isImage(f));
+  if (cals.length) {
+    try { convertText(await Promise.all(cals.map(f => f.text()))); }
+    catch (e) { setStatus(`Couldn't read that file: ${e.message}`, true); }
+  }
+  if (images.length) {
+    await handleImage(images[0]);
+    if (images.length > 1) setStatus(`${status.textContent} (Only the first screenshot was read; drop the others one at a time.)`, status.className === 'bad');
+  }
 }
 
 const drop = $('#drop'), fileInput = $('#file');
@@ -358,6 +886,16 @@ addEventListener('drop', e => {
   const dt = e.dataTransfer;
   if (dt.files.length) handleFiles(dt.files);
   else { const t = dt.getData('text/plain'); if (t) convertText([t]); }
+});
+
+// Paste a screenshot (or ICS text) anywhere outside a text box.
+addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files || [])].filter(isImage);
+  if (files.length) { e.preventDefault(); handleImage(files[0]); return; }
+  const target = e.target;
+  if (target.closest?.('input, textarea')) return;
+  const t = e.clipboardData?.getData('text/plain') || '';
+  if (/BEGIN:VCALENDAR/i.test(t)) { e.preventDefault(); convertText([t]); }
 });
 
 $('#convert').onclick = () => convertText([$('#paste').value]);
